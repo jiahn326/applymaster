@@ -16,7 +16,8 @@ export interface JobFitAnalysis {
 
 export async function analyzeJobFit(
   resumeRawText: string,
-  jobDescription: string
+  jobDescription: string,
+  currentLocation?: string
 ): Promise<JobFitAnalysis> {
-  return api.analyzeJobFit(resumeRawText, jobDescription)
+  return api.analyzeJobFit(resumeRawText, jobDescription, currentLocation)
 }

@@ -13,8 +13,8 @@ export const api = {
   tailorResume: (resumeRawText: string, jobDescription: string) =>
     callProxy('tailorResume', { resumeRawText, jobDescription }),
 
-  analyzeJobFit: (resumeRawText: string, jobDescription: string) =>
-    callProxy('analyzeJobFit', { resumeRawText, jobDescription }),
+  analyzeJobFit: (resumeRawText: string, jobDescription: string, currentLocation?: string) =>
+    callProxy('analyzeJobFit', { resumeRawText, jobDescription, currentLocation }),
 
   generateCoverLetter: (company: string, role: string, jobDescription: string, header?: { name: string; contact: string }) =>
     callProxy('generateCoverLetter', { company, role, jobDescription, header }).then(d => d.text as string),

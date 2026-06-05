@@ -20,8 +20,18 @@ export default function UploadResumePage() {
   const [error, setError] = useState<string | null>(null)
   const [dragging, setDragging] = useState(false)
   const [hasExisting, setHasExisting] = useState(false)
+  const [currentLocation, setCurrentLocation] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
   const navigate = useNavigate()
+
+  // Load existing location if resume already uploaded
+  useState(() => {
+    supabase.from('resumes').select('content').limit(1).then(({ data }) => {
+      if (data?.[0]?.content?.current_location) {
+        setCurrentLocation(data[0].content.current_location)
+      }
+    })
+  })
 
   // Check if a resume already exists
   useState(() => {
@@ -54,7 +64,7 @@ export default function UploadResumePage() {
       setStatus('saving')
       await supabase.from('resumes').delete().neq('id', '00000000-0000-0000-0000-000000000000')
       const { error: insertError } = await supabase.from('resumes').insert({
-        content: { raw_text: text, file_name: file.name, structure },
+        content: { raw_text: text, file_name: file.name, structure, current_location: currentLocation || null },
       })
       if (insertError) throw insertError
 
@@ -98,6 +108,20 @@ export default function UploadResumePage() {
           <p className="text-gray-500 text-sm mt-1.5">
             Upload your base resume once. We'll tailor it for each job description using AI.
           </p>
+        </div>
+
+        {/* Current Location */}
+        <div className="mb-6">
+          <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
+            Current Location
+          </label>
+          <input
+            value={currentLocation}
+            onChange={e => setCurrentLocation(e.target.value)}
+            placeholder="e.g. San Francisco, CA"
+            className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
+          />
+          <p className="text-gray-400 text-xs mt-1">Used for accurate location matching in fit analysis</p>
         </div>
 
         {/* Drop zone */}

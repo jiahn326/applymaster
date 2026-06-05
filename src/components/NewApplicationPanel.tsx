@@ -72,11 +72,12 @@ export default function NewApplicationPanel({ onSaved, onClose }: Props) {
 
       const { data: resumes } = await supabase.from('resumes').select('content').limit(1)
       const rawText = resumes?.[0]?.content?.raw_text as string | undefined
+      const currentLocation = resumes?.[0]?.content?.current_location as string | undefined
 
       const [info, fit] = await Promise.race([
         Promise.all([
           extractJobInfo(content),
-          rawText ? analyzeJobFit(rawText, content) : Promise.resolve(null),
+          rawText ? analyzeJobFit(rawText, content, currentLocation) : Promise.resolve(null),
         ]),
         timeout,
       ])

@@ -25,7 +25,7 @@ Deno.serve(async (req) => {
 
     let result
     if (action === 'tailorResume')         result = await tailorResume(client, payload.resumeRawText, payload.jobDescription)
-    else if (action === 'analyzeJobFit')   result = await analyzeJobFit(client, payload.resumeRawText, payload.jobDescription)
+    else if (action === 'analyzeJobFit')   result = await analyzeJobFit(client, payload.resumeRawText, payload.jobDescription, payload.currentLocation)
     else if (action === 'generateCoverLetter') result = await generateCoverLetter(client, payload.company, payload.role, payload.jobDescription, payload.header)
     else if (action === 'extractJobInfo')  result = await extractJobInfo(client, payload.content)
     else if (action === 'parseResumeStructure') result = await parseResumeStructure(client, payload.rawText)
@@ -75,12 +75,12 @@ Return JSON only:
   return { ...parsed, diffs: parsed.diffs.map((d: any) => ({ ...d, accepted: true })) }
 }
 
-async function analyzeJobFit(client: Anthropic, resumeRawText: string, jobDescription: string) {
+async function analyzeJobFit(client: Anthropic, resumeRawText: string, jobDescription: string, currentLocation?: string) {
   const text = await callClaude(client, `You are a career coach. Analyze how well this resume matches the job description.
 
 RESUME:
 ${resumeRawText}
-
+${currentLocation ? `\nCANDIDATE'S CURRENT LOCATION: ${currentLocation}\n` : ''}
 JOB DESCRIPTION:
 ${jobDescription}
 
