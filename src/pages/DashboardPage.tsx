@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import NewApplicationPanel from '../components/NewApplicationPanel'
+import { useAuth } from '../hooks/useAuth'
 
 type Status = 'applied' | 'interviewing' | 'rejected' | 'offer'
 type FilterTab = 'all' | Status
@@ -39,6 +40,7 @@ export default function DashboardPage() {
   const [filter, setFilter] = useState<FilterTab>('all')
   const [showNewPanel, setShowNewPanel] = useState(false)
   const navigate = useNavigate()
+  const { signOut } = useAuth()
 
   useEffect(() => {
     async function load() {
@@ -76,12 +78,20 @@ export default function DashboardPage() {
       <header className="bg-white border-b border-gray-200 sticky top-0 z-20">
         <div className="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
           <span className="text-lg font-bold tracking-tight text-gray-900">ApplyMaster</span>
-          <button
-            onClick={() => navigate('/resume/upload')}
-            className="text-sm text-gray-500 hover:text-gray-800 font-medium transition-colors"
-          >
-            {hasResume ? '↑ Replace Resume' : '↑ Upload Resume'}
-          </button>
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => navigate('/resume/upload')}
+              className="text-sm text-gray-500 hover:text-gray-800 font-medium transition-colors"
+            >
+              {hasResume ? '↑ Replace Resume' : '↑ Upload Resume'}
+            </button>
+            <button
+              onClick={() => signOut()}
+              className="text-sm text-gray-400 hover:text-gray-700 font-medium transition-colors"
+            >
+              Sign out
+            </button>
+          </div>
         </div>
       </header>
 

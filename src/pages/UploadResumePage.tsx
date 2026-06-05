@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { extractTextFromPdf } from '../lib/parsePdf'
 import { parseResumeStructure } from '../lib/parseResumeStructure'
 import { supabase } from '../lib/supabase'
+import { useAuth } from '../hooks/useAuth'
 
 type UploadStatus = 'idle' | 'parsing' | 'structuring' | 'saving' | 'done' | 'error'
 
@@ -23,6 +24,7 @@ export default function UploadResumePage() {
   const [currentLocation, setCurrentLocation] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
   const navigate = useNavigate()
+  const { user } = useAuth()
 
   // Load existing location if resume already uploaded
   useState(() => {
@@ -65,6 +67,7 @@ export default function UploadResumePage() {
       await supabase.from('resumes').delete().neq('id', '00000000-0000-0000-0000-000000000000')
       const { error: insertError } = await supabase.from('resumes').insert({
         content: { raw_text: text, file_name: file.name, structure, current_location: currentLocation || null },
+        user_id: user?.id,
       })
       if (insertError) throw insertError
 

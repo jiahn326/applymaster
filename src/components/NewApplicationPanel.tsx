@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
+import { useAuth } from '../hooks/useAuth'
 import { extractJobInfo } from '../lib/extractJobInfo'
 import { analyzeJobFit, type JobFitAnalysis } from '../lib/analyzeJobFit'
 
@@ -33,6 +34,7 @@ interface Props {
 }
 
 export default function NewApplicationPanel({ onSaved, onClose }: Props) {
+  const { user } = useAuth()
   const [step, setStep] = useState<Step>('paste')
   const [pasteText, setPasteText] = useState('')
   const [company, setCompany] = useState('')
@@ -107,6 +109,7 @@ export default function NewApplicationPanel({ onSaved, onClose }: Props) {
           applied_through: null,
           status: 'applied',
           fit_analysis: analysis,
+          user_id: user?.id,
         })
         .select()
         .single()
@@ -137,6 +140,7 @@ export default function NewApplicationPanel({ onSaved, onClose }: Props) {
           applied_through: appliedThrough,
           status: 'applied',
           fit_analysis: analysis,
+          user_id: user?.id,
         })
         .select()
         .single()
