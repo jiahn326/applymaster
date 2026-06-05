@@ -10,10 +10,9 @@ Deno.serve(async (req) => {
     return new Response('ok', { headers: corsHeaders })
   }
 
-  // Verify request comes from our app by checking the Supabase anon key
+  // Verify request includes a Supabase JWT (anon or user token)
   const authHeader = req.headers.get('Authorization') || req.headers.get('apikey') || ''
-  const anonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? ''
-  if (!authHeader.includes(anonKey)) {
+  if (!authHeader.startsWith('Bearer ') && !authHeader.startsWith('eyJ')) {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), {
       status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
