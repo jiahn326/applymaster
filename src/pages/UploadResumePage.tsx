@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { extractTextFromPdf } from '../lib/parsePdf'
+import { extractTextFromDocx } from '../lib/parseDocx'
 import { parseResumeStructure } from '../lib/parseResumeStructure'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
@@ -9,7 +10,7 @@ type UploadStatus = 'idle' | 'parsing' | 'structuring' | 'saving' | 'done' | 'er
 
 const STATUS_MESSAGES: Record<UploadStatus, string> = {
   idle:        '',
-  parsing:     'Reading PDF...',
+  parsing:     'Reading file...',
   structuring: '✨ Structuring with AI...',
   saving:      'Saving...',
   done:        '✓ Resume saved!',
@@ -43,8 +44,10 @@ export default function UploadResumePage() {
   })
 
   async function handleFile(file: File) {
-    if (!file.name.endsWith('.pdf')) {
-      setError('Please upload a PDF file.')
+    const isPdf = file.name.toLowerCase().endsWith('.pdf')
+    const isDocx = file.name.toLowerCase().endsWith('.docx')
+    if (!isPdf && !isDocx) {
+      setError('Please upload a PDF or DOCX file.')
       return
     }
 
@@ -58,7 +61,7 @@ export default function UploadResumePage() {
     try {
       setError(null)
       setStatus('parsing')
-      const text = await extractTextFromPdf(file)
+      const text = isPdf ? await extractTextFromPdf(file) : await extractTextFromDocx(file)
 
       setStatus('structuring')
       const structure = await parseResumeStructure(text)
@@ -147,7 +150,7 @@ export default function UploadResumePage() {
           <input
             ref={inputRef}
             type="file"
-            accept=".pdf"
+            accept=".pdf,.docx"
             className="hidden"
             onChange={onFileChange}
             onClick={(e) => e.stopPropagation()}
@@ -161,8 +164,8 @@ export default function UploadResumePage() {
                   <polyline points="14 2 14 8 20 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
               </div>
-              <p className="text-gray-700 font-semibold text-sm">Drop your PDF here</p>
-              <p className="text-gray-400 text-xs mt-1">or click to browse</p>
+              <p className="text-gray-700 font-semibold text-sm">Drop your resume here</p>
+              <p className="text-gray-400 text-xs mt-1">PDF or DOCX · or click to browse</p>
             </>
           )}
 
@@ -196,7 +199,7 @@ export default function UploadResumePage() {
           <p className="mt-3 text-red-500 text-xs text-center">{error}</p>
         )}
 
-        <p className="mt-4 text-center text-gray-400 text-xs">PDF files only · Max ~10 pages</p>
+        <p className="mt-4 text-center text-gray-400 text-xs">PDF or DOCX · Max ~10 pages</p>
       </main>
     </div>
   )
