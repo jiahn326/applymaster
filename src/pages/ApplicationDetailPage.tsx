@@ -10,6 +10,10 @@ async function lazyExportDocx(...args: Parameters<typeof import('../lib/exportRe
   const { exportDocx } = await import('../lib/exportResume')
   return exportDocx(...args)
 }
+async function lazyExportGoogleDocs(...args: Parameters<typeof import('../lib/exportResume').exportGoogleDocs>) {
+  const { exportGoogleDocs } = await import('../lib/exportResume')
+  return exportGoogleDocs(...args)
+}
 import { tailorResume } from '../lib/tailorResume'
 import { generateCoverLetter } from '../lib/generateCoverLetter'
 import ResumeChangesView from '../components/ResumeChangesView'
@@ -306,11 +310,18 @@ export default function ApplicationDetailPage() {
                 {app.tailored_resume && structure ? (
                   <>
                     {/* Export + Re-tailor */}
-                    <div className="grid grid-cols-3 gap-2">
+                    <div className="grid grid-cols-2 gap-2">
                       <button onClick={() => lazyExportPdf(structure, app.tailored_resume!, fileName)}
                         className="bg-gray-50 border border-gray-200 text-gray-700 font-semibold py-2.5 rounded-xl hover:bg-gray-100 transition-all text-sm">↓ PDF</button>
                       <button onClick={() => lazyExportDocx(structure, app.tailored_resume!, fileName)}
                         className="bg-gray-50 border border-gray-200 text-gray-700 font-semibold py-2.5 rounded-xl hover:bg-gray-100 transition-all text-sm">↓ DOCX</button>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        onClick={() => lazyExportGoogleDocs(structure, app.tailored_resume!)}
+                        className="bg-blue-50 border border-blue-200 text-blue-700 font-semibold py-2.5 rounded-xl hover:bg-blue-100 transition-all text-sm"
+                        title="Downloads an HTML file — upload to Google Drive, then open with Google Docs"
+                      >↓ Google Docs (HTML)</button>
                       <button onClick={handleTailor} disabled={tailoring || !app.job_description}
                         className="bg-gray-50 border border-gray-200 text-gray-500 font-medium py-2.5 rounded-xl hover:bg-gray-100 transition-all text-sm disabled:opacity-40">
                         {tailoring ? '✨...' : '↺ Re-tailor'}

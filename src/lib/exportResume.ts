@@ -281,6 +281,62 @@ export function exportPdf(
   doc.save(`${fileName}.pdf`)
 }
 
+// ─── Google Docs Export ─────────────────────────────────────────────────────
+
+export function exportGoogleDocs(
+  structure: ResumeStructure,
+  tailored: TailoredResume
+): void {
+  const s = applyTailoring(structure, tailored)
+  const e = (t: string) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+
+  const rows: string[] = []
+
+  const secHeader = (title: string) =>
+    `<h2 style="text-align:center;font-size:11pt;border-bottom:1px solid #000;margin:12pt 0 4pt;">${e(title)}</h2>`
+
+  const twoCol = (left: string, right: string, bold = false, italic = false) => {
+    const tag = bold ? 'strong' : italic ? 'em' : 'span'
+    return `<p style="margin:1pt 0;font-size:10pt;"><${tag}>${e(left)}</${tag}><span style="float:right"><${tag}>${e(right)}</${tag}></span></p>`
+  }
+
+  rows.push(`<h1 style="text-align:center;font-size:16pt;margin:0 0 2pt;">${e(s.header.name)}</h1>`)
+  rows.push(`<p style="text-align:center;font-size:10pt;margin:0 0 10pt;">${e(s.header.contact)}</p>`)
+
+  rows.push(secHeader('EDUCATION'))
+  for (const edu of s.education) {
+    rows.push(twoCol(edu.school, edu.location, true))
+    rows.push(twoCol(edu.degree, edu.dates, false, true))
+    if (edu.awards) rows.push(`<p style="font-size:10pt;margin:1pt 0;"><strong>Awards: </strong>${e(edu.awards)}</p>`)
+  }
+
+  rows.push(secHeader('SKILLS'))
+  rows.push(`<p style="font-size:10pt;margin:1pt 0;"><strong>Languages: </strong>${e(s.skills.languages.join(', '))}</p>`)
+  rows.push(`<p style="font-size:10pt;margin:1pt 0;"><strong>Tools: </strong>${e(s.skills.tools.join(', '))}</p>`)
+
+  rows.push(secHeader('EXPERIENCE'))
+  for (const exp of s.experience) {
+    rows.push(twoCol(exp.company, exp.location, true))
+    rows.push(twoCol(exp.title, exp.dates, false, true))
+    for (const b of exp.bullets) rows.push(`<p style="font-size:10pt;margin:1pt 0 1pt 18pt;">-&nbsp; ${e(b)}</p>`)
+    rows.push('<p style="margin:6pt 0;"></p>')
+  }
+
+  rows.push(secHeader('PERSONAL PROJECTS'))
+  for (const proj of s.projects) {
+    rows.push(`<p style="font-size:10pt;margin:2pt 0;"><strong>${e(proj.name)}</strong>${proj.tech ? ` <span style="font-size:9pt;">(${e(proj.tech)})</span>` : ''}</p>`)
+    for (const b of proj.bullets) rows.push(`<p style="font-size:10pt;margin:1pt 0 1pt 18pt;">-&nbsp; ${e(b)}</p>`)
+    rows.push('<p style="margin:6pt 0;"></p>')
+  }
+
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
+<style>body{font-family:Arial,sans-serif;max-width:720px;margin:40px auto;padding:0 40px;}p,h1,h2{margin:0;}
+</style></head><body>${rows.join('\n')}</body></html>`
+
+  const blob = new Blob([html], { type: 'text/html' })
+  downloadBlob(blob, 'resume.html')
+}
+
 // ─── Helper ─────────────────────────────────────────────────────────────────
 
 function downloadBlob(blob: Blob, fileName: string) {
