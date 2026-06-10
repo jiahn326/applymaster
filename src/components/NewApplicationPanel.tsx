@@ -72,7 +72,7 @@ export default function NewApplicationPanel({ onSaved, onClose }: Props) {
         } catch { /* use raw URL */ }
       }
 
-      const { data: resumes } = await supabase.from('resumes').select('content').limit(1)
+      const { data: resumes } = await supabase.from('resumes').select('content').order('created_at', { ascending: false }).limit(1)
       const rawText = resumes?.[0]?.content?.raw_text as string | undefined
       const currentLocation = resumes?.[0]?.content?.current_location as string | undefined
 

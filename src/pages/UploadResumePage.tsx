@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { extractTextFromPdf } from '../lib/parsePdf'
 import { extractTextFromDocx } from '../lib/parseDocx'
@@ -7,6 +7,12 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
 
 type UploadStatus = 'idle' | 'parsing' | 'structuring' | 'saving' | 'done' | 'error'
+
+interface ResumeVersion {
+  id: string
+  created_at: string
+  content: { file_name?: string; current_location?: string }
+}
 
 const STATUS_MESSAGES: Record<UploadStatus, string> = {
   idle:        '',
@@ -21,27 +27,26 @@ export default function UploadResumePage() {
   const [status, setStatus] = useState<UploadStatus>('idle')
   const [error, setError] = useState<string | null>(null)
   const [dragging, setDragging] = useState(false)
-  const [hasExisting, setHasExisting] = useState(false)
   const [currentLocation, setCurrentLocation] = useState('')
+  const [versions, setVersions] = useState<ResumeVersion[]>([])
   const inputRef = useRef<HTMLInputElement>(null)
   const navigate = useNavigate()
   const { user } = useAuth()
 
-  // Load existing location if resume already uploaded
-  useState(() => {
-    supabase.from('resumes').select('content').limit(1).then(({ data }) => {
-      if (data?.[0]?.content?.current_location) {
-        setCurrentLocation(data[0].content.current_location)
-      }
-    })
-  })
-
-  // Check if a resume already exists
-  useState(() => {
-    supabase.from('resumes').select('id').limit(1).then(({ data }) => {
-      setHasExisting((data?.length ?? 0) > 0)
-    })
-  })
+  useEffect(() => {
+    supabase
+      .from('resumes')
+      .select('id, created_at, content')
+      .order('created_at', { ascending: false })
+      .then(({ data }) => {
+        if (data) {
+          setVersions(data as ResumeVersion[])
+          if (data[0]?.content?.current_location) {
+            setCurrentLocation(data[0].content.current_location)
+          }
+        }
+      })
+  }, [])
 
   async function handleFile(file: File) {
     const isPdf = file.name.toLowerCase().endsWith('.pdf')
@@ -49,13 +54,6 @@ export default function UploadResumePage() {
     if (!isPdf && !isDocx) {
       setError('Please upload a PDF or DOCX file.')
       return
-    }
-
-    if (hasExisting) {
-      const confirmed = confirm(
-        '⚠️ Replacing your resume will affect future exports.\n\nExisting tailored resumes saved in your applications were based on your old resume structure. PDF/DOCX exports for those applications may look different.\n\nContinue?'
-      )
-      if (!confirmed) return
     }
 
     try {
@@ -67,19 +65,29 @@ export default function UploadResumePage() {
       const structure = await parseResumeStructure(text)
 
       setStatus('saving')
-      await supabase.from('resumes').delete().neq('id', '00000000-0000-0000-0000-000000000000')
-      const { error: insertError } = await supabase.from('resumes').insert({
+      const { data: inserted, error: insertError } = await supabase.from('resumes').insert({
         content: { raw_text: text, file_name: file.name, structure, current_location: currentLocation || null },
         user_id: user?.id,
-      })
+      }).select('id, created_at, content').single()
       if (insertError) throw insertError
 
+      setVersions(prev => [inserted as ResumeVersion, ...prev])
       setStatus('done')
       setTimeout(() => navigate('/'), 1200)
     } catch (err: any) {
       setError(err.message ?? 'Something went wrong.')
       setStatus('error')
     }
+  }
+
+  async function handleDeleteVersion(id: string) {
+    if (versions.length === 1) {
+      alert('You need at least one resume version.')
+      return
+    }
+    if (!confirm('Delete this resume version?')) return
+    await supabase.from('resumes').delete().eq('id', id)
+    setVersions(prev => prev.filter(v => v.id !== id))
   }
 
   function onFileChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -96,6 +104,10 @@ export default function UploadResumePage() {
   }
 
   const isProcessing = ['parsing', 'structuring', 'saving'].includes(status)
+
+  function formatDate(iso: string) {
+    return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+  }
 
   return (
     <div className="min-h-screen bg-[#F7F8FA]">
@@ -200,6 +212,36 @@ export default function UploadResumePage() {
         )}
 
         <p className="mt-4 text-center text-gray-400 text-xs">PDF or DOCX · Max ~10 pages</p>
+
+        {/* Version history */}
+        {versions.length > 0 && (
+          <div className="mt-10">
+            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Version History</h3>
+            <div className="space-y-2">
+              {versions.map((v, i) => (
+                <div key={v.id} className={`flex items-center justify-between rounded-xl border px-4 py-3 ${i === 0 ? 'border-gray-900 bg-gray-50' : 'border-gray-200 bg-white'}`}>
+                  <div className="flex items-center gap-3">
+                    {i === 0 && (
+                      <span className="text-xs font-semibold bg-gray-900 text-white px-2 py-0.5 rounded-full">Current</span>
+                    )}
+                    <div>
+                      <p className="text-sm font-medium text-gray-800">{v.content?.file_name ?? 'resume'}</p>
+                      <p className="text-xs text-gray-400">{formatDate(v.created_at)}</p>
+                    </div>
+                  </div>
+                  {i !== 0 && (
+                    <button
+                      onClick={() => handleDeleteVersion(v.id)}
+                      className="text-gray-300 hover:text-red-400 transition-colors text-xs"
+                    >
+                      Delete
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </main>
     </div>
   )
