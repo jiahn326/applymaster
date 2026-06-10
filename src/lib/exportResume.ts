@@ -1,7 +1,4 @@
-import {
-  Document, Packer, Paragraph, TextRun, AlignmentType,
-  BorderStyle, TabStopType
-} from 'docx'
+import JSZip from 'jszip'
 import { jsPDF } from 'jspdf'
 import type { TailoredResume } from './tailorResume'
 import type { ResumeStructure } from './parseResumeStructure'
@@ -40,7 +37,49 @@ function applyTailoring(structure: ResumeStructure, tailored: TailoredResume): R
   return result
 }
 
-// ─── DOCX Export ────────────────────────────────────────────────────────────
+// ─── DOCX Export (minimal OOXML, Google Docs compatible) ────────────────────
+
+function esc(t: string) {
+  return t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+}
+
+function p(content: string, opts: { center?: boolean; spBefore?: number; spAfter?: number; indent?: boolean; border?: boolean } = {}) {
+  const pPr = [
+    opts.center ? '<w:jc w:val="center"/>' : '',
+    (opts.spBefore || opts.spAfter) ? `<w:spacing w:before="${opts.spBefore ?? 0}" w:after="${opts.spAfter ?? 0}"/>` : '',
+    opts.indent ? '<w:ind w:left="360" w:hanging="200"/>' : '',
+    opts.border ? '<w:pBdr><w:bottom w:val="single" w:sz="6" w:space="1" w:color="000000"/></w:pBdr>' : '',
+  ].join('')
+  return `<w:p>${pPr ? `<w:pPr>${pPr}</w:pPr>` : ''}${content}</w:p>`
+}
+
+function r(text: string, opts: { bold?: boolean; italic?: boolean; sz?: number } = {}) {
+  const rPr = [
+    opts.bold ? '<w:b/>' : '',
+    opts.italic ? '<w:i/>' : '',
+    opts.sz ? `<w:sz w:val="${opts.sz}"/><w:szCs w:val="${opts.sz}"/>` : '',
+  ].join('')
+  return `<w:r>${rPr ? `<w:rPr>${rPr}</w:rPr>` : ''}<w:t xml:space="preserve">${esc(text)}</w:t></w:r>`
+}
+
+function twoColPara(left: string, right: string, bold = false, italic = false) {
+  const rPr = [bold ? '<w:b/>' : '', italic ? '<w:i/>' : ''].join('')
+  const rPrTag = rPr ? `<w:rPr>${rPr}<w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr>` : `<w:rPr><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr>`
+  return `<w:p>
+    <w:pPr><w:spacing w:before="0" w:after="40"/><w:tabs><w:tab w:val="right" w:pos="9360"/></w:tabs></w:pPr>
+    <w:r>${rPrTag}<w:t xml:space="preserve">${esc(left)}</w:t></w:r>
+    <w:r><w:rPr><w:sz w:val="20"/></w:rPr><w:tab/></w:r>
+    <w:r>${rPrTag}<w:t xml:space="preserve">${esc(right)}</w:t></w:r>
+  </w:p>`
+}
+
+function sectionHeader(title: string) {
+  return p(r(title, { bold: true, sz: 22 }), { center: true, spBefore: 160, spAfter: 80, border: true })
+}
+
+function bullet(text: string) {
+  return p(r(`-  ${text}`, { sz: 20 }), { spAfter: 60, indent: true })
+}
 
 export async function exportDocx(
   structure: ResumeStructure,
@@ -48,145 +87,80 @@ export async function exportDocx(
   fileName: string
 ): Promise<void> {
   const s = applyTailoring(structure, tailored)
-  const children: Paragraph[] = []
-
-  const sz = (n: number) => ({ size: n })
+  const paras: string[] = []
 
   // Header
-  children.push(
-    new Paragraph({
-      alignment: AlignmentType.CENTER,
-      spacing: { after: 40 },
-      children: [new TextRun({ text: s.header.name, bold: true, ...sz(28) })],
-    }),
-    new Paragraph({
-      alignment: AlignmentType.CENTER,
-      spacing: { after: 160 },
-      children: [new TextRun({ text: s.header.contact, ...sz(20) })],
-    })
-  )
+  paras.push(p(r(s.header.name, { bold: true, sz: 28 }), { center: true, spAfter: 40 }))
+  paras.push(p(r(s.header.contact, { sz: 20 }), { center: true, spAfter: 160 }))
 
-  function sectionHeader(title: string) {
-    return new Paragraph({
-      alignment: AlignmentType.CENTER,
-      spacing: { before: 160, after: 80 },
-      border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: '000000' } },
-      children: [new TextRun({ text: title, bold: true, ...sz(22) })],
-    })
-  }
-
-  function bullet(text: string) {
-    return new Paragraph({
-      indent: { left: 360, hanging: 200 },
-      spacing: { after: 60 },
-      children: [new TextRun({ text: `-  ${text}`, ...sz(20) })],
-    })
-  }
-
-  // EDUCATION
-  children.push(sectionHeader('EDUCATION'))
+  // Education
+  paras.push(sectionHeader('EDUCATION'))
   for (const edu of s.education) {
-    children.push(
-      new Paragraph({
-        tabStops: [{ type: TabStopType.RIGHT, position: 9360 }],
-        spacing: { after: 40 },
-        children: [
-          new TextRun({ text: edu.school, bold: true, ...sz(20) }),
-          new TextRun({ text: '\t', ...sz(20) }),
-          new TextRun({ text: edu.location, bold: true, ...sz(20) }),
-        ],
-      }),
-      new Paragraph({
-        tabStops: [{ type: TabStopType.RIGHT, position: 9360 }],
-        spacing: { after: 40 },
-        children: [
-          new TextRun({ text: edu.degree, italics: true, ...sz(20) }),
-          new TextRun({ text: '\t', ...sz(20) }),
-          new TextRun({ text: edu.dates, italics: true, ...sz(20) }),
-        ],
-      })
-    )
-    if (edu.awards) {
-      children.push(new Paragraph({
-        spacing: { after: 40 },
-        children: [
-          new TextRun({ text: 'Awards: ', bold: true, ...sz(20) }),
-          new TextRun({ text: edu.awards, ...sz(20) }),
-        ],
-      }))
-    }
+    paras.push(twoColPara(edu.school, edu.location, true))
+    paras.push(twoColPara(edu.degree, edu.dates, false, true))
+    if (edu.awards) paras.push(p(r('Awards: ', { bold: true, sz: 20 }) + r(edu.awards, { sz: 20 }), { spAfter: 40 }))
   }
 
-  // SKILLS
-  children.push(sectionHeader('SKILLS'))
-  children.push(
-    new Paragraph({
-      spacing: { after: 60 },
-      children: [
-        new TextRun({ text: 'Languages: ', bold: true, ...sz(20) }),
-        new TextRun({ text: s.skills.languages.join(', '), ...sz(20) }),
-      ],
-    }),
-    new Paragraph({
-      spacing: { after: 60 },
-      children: [
-        new TextRun({ text: 'Tools: ', bold: true, ...sz(20) }),
-        new TextRun({ text: s.skills.tools.join(', '), ...sz(20) }),
-      ],
-    })
-  )
+  // Skills
+  paras.push(sectionHeader('SKILLS'))
+  paras.push(p(r('Languages: ', { bold: true, sz: 20 }) + r(s.skills.languages.join(', '), { sz: 20 }), { spAfter: 60 }))
+  paras.push(p(r('Tools: ', { bold: true, sz: 20 }) + r(s.skills.tools.join(', '), { sz: 20 }), { spAfter: 60 }))
 
-  // EXPERIENCE
-  children.push(sectionHeader('EXPERIENCE'))
+  // Experience
+  paras.push(sectionHeader('EXPERIENCE'))
   for (const exp of s.experience) {
-    children.push(
-      new Paragraph({
-        tabStops: [{ type: TabStopType.RIGHT, position: 9360 }],
-        spacing: { after: 40 },
-        children: [
-          new TextRun({ text: exp.company, bold: true, ...sz(20) }),
-          new TextRun({ text: '\t', ...sz(20) }),
-          new TextRun({ text: exp.location, bold: true, ...sz(20) }),
-        ],
-      }),
-      new Paragraph({
-        tabStops: [{ type: TabStopType.RIGHT, position: 9360 }],
-        spacing: { after: 60 },
-        children: [
-          new TextRun({ text: exp.title, italics: true, ...sz(20) }),
-          new TextRun({ text: '\t', ...sz(20) }),
-          new TextRun({ text: exp.dates, italics: true, ...sz(20) }),
-        ],
-      })
-    )
-    for (const b of exp.bullets) children.push(bullet(b))
+    paras.push(twoColPara(exp.company, exp.location, true))
+    paras.push(twoColPara(exp.title, exp.dates, false, true))
+    for (const b of exp.bullets) paras.push(bullet(b))
+    paras.push(p('', { spAfter: 40 }))
   }
 
-  // PROJECTS
-  children.push(sectionHeader('PERSONAL PROJECTS'))
+  // Projects
+  paras.push(sectionHeader('PERSONAL PROJECTS'))
   for (const proj of s.projects) {
-    children.push(
-      new Paragraph({
-        spacing: { after: 60 },
-        children: [
-          new TextRun({ text: proj.name, bold: true, ...sz(20) }),
-          new TextRun({ text: proj.tech ? ` (${proj.tech})` : '', ...sz(20) }),
-        ],
-      })
-    )
-    for (const b of proj.bullets) children.push(bullet(b))
+    paras.push(p(
+      r(proj.name, { bold: true, sz: 20 }) + (proj.tech ? r(` (${proj.tech})`, { sz: 20 }) : ''),
+      { spAfter: 40 }
+    ))
+    for (const b of proj.bullets) paras.push(bullet(b))
+    paras.push(p('', { spAfter: 40 }))
   }
 
-  const doc = new Document({
-    sections: [{
-      properties: {
-        page: { margin: { top: 720, bottom: 720, left: 900, right: 900 } }
-      },
-      children
-    }]
-  })
+  const documentXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:wpc="http://schemas.microsoft.com/office/word/2010/wordprocessingCanvas"
+  xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+  xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+  <w:body>
+    ${paras.join('\n    ')}
+    <w:sectPr>
+      <w:pgMar w:top="720" w:right="900" w:bottom="720" w:left="900"/>
+    </w:sectPr>
+  </w:body>
+</w:document>`
 
-  const blob = await Packer.toBlob(doc)
+  const contentTypes = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+</Types>`
+
+  const rels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
+</Relationships>`
+
+  const wordRels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+</Relationships>`
+
+  const zip = new JSZip()
+  zip.file('[Content_Types].xml', contentTypes)
+  zip.file('_rels/.rels', rels)
+  zip.file('word/document.xml', documentXml)
+  zip.file('word/_rels/document.xml.rels', wordRels)
+
+  const blob = await zip.generateAsync({ type: 'blob', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' })
   downloadBlob(blob, `${fileName}.docx`)
 }
 
