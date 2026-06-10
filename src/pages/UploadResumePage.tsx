@@ -11,7 +11,7 @@ type UploadStatus = 'idle' | 'parsing' | 'structuring' | 'saving' | 'done' | 'er
 interface ResumeVersion {
   id: string
   created_at: string
-  content: { file_name?: string; current_location?: string }
+  content: { file_name?: string; current_location?: string; raw_text?: string; structure?: any }
 }
 
 const STATUS_MESSAGES: Record<UploadStatus, string> = {
@@ -29,6 +29,7 @@ export default function UploadResumePage() {
   const [dragging, setDragging] = useState(false)
   const [currentLocation, setCurrentLocation] = useState('')
   const [versions, setVersions] = useState<ResumeVersion[]>([])
+  const [previewVersion, setPreviewVersion] = useState<ResumeVersion | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const navigate = useNavigate()
   const { user } = useAuth()
@@ -220,29 +221,63 @@ export default function UploadResumePage() {
             <div className="space-y-2">
               {versions.map((v, i) => (
                 <div key={v.id} className={`flex items-center justify-between rounded-xl border px-4 py-3 ${i === 0 ? 'border-gray-900 bg-gray-50' : 'border-gray-200 bg-white'}`}>
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-3 min-w-0">
                     {i === 0 && (
-                      <span className="text-xs font-semibold bg-gray-900 text-white px-2 py-0.5 rounded-full">Current</span>
+                      <span className="shrink-0 text-xs font-semibold bg-gray-900 text-white px-2 py-0.5 rounded-full">Current</span>
                     )}
-                    <div>
-                      <p className="text-sm font-medium text-gray-800">{v.content?.file_name ?? 'resume'}</p>
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-gray-800 truncate">{v.content?.file_name ?? 'resume'}</p>
                       <p className="text-xs text-gray-400">{formatDate(v.created_at)}</p>
                     </div>
                   </div>
-                  {i !== 0 && (
+                  <div className="flex items-center gap-3 shrink-0 ml-3">
                     <button
-                      onClick={() => handleDeleteVersion(v.id)}
-                      className="text-gray-300 hover:text-red-400 transition-colors text-xs"
+                      onClick={() => setPreviewVersion(v)}
+                      className="text-xs text-gray-500 hover:text-gray-900 font-medium transition-colors"
                     >
-                      Delete
+                      View
                     </button>
-                  )}
+                    {i !== 0 && (
+                      <button
+                        onClick={() => handleDeleteVersion(v.id)}
+                        className="text-xs text-gray-300 hover:text-red-400 transition-colors"
+                      >
+                        Delete
+                      </button>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
           </div>
         )}
       </main>
+
+      {/* Preview modal */}
+      {previewVersion && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setPreviewVersion(null)}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
+              <div>
+                <p className="font-semibold text-gray-900 text-sm">{previewVersion.content?.file_name ?? 'resume'}</p>
+                <p className="text-xs text-gray-400">{formatDate(previewVersion.created_at)}</p>
+              </div>
+              <button onClick={() => setPreviewVersion(null)} className="text-gray-400 hover:text-gray-700 p-1 rounded-md hover:bg-gray-100 transition-colors">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                  <path d="M2 2l12 12M14 2L2 14" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+                </svg>
+              </button>
+            </div>
+            <div className="overflow-y-auto flex-1 px-6 py-4">
+              {previewVersion.content?.raw_text ? (
+                <pre className="text-xs text-gray-700 whitespace-pre-wrap font-mono leading-relaxed">{previewVersion.content.raw_text}</pre>
+              ) : (
+                <p className="text-sm text-gray-400">No preview available.</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
