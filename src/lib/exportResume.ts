@@ -50,27 +50,28 @@ export async function exportDocx(
   const s = applyTailoring(structure, tailored)
   const children: Paragraph[] = []
 
+  const sz = (n: number) => ({ size: n })
+
   // Header
   children.push(
     new Paragraph({
       alignment: AlignmentType.CENTER,
       spacing: { after: 40 },
-      children: [new TextRun({ text: s.header.name, bold: true, size: 28, font: 'Calibri' })],
+      children: [new TextRun({ text: s.header.name, bold: true, ...sz(28) })],
     }),
     new Paragraph({
       alignment: AlignmentType.CENTER,
       spacing: { after: 160 },
-      children: [new TextRun({ text: s.header.contact, size: 20, font: 'Calibri' })],
+      children: [new TextRun({ text: s.header.contact, ...sz(20) })],
     })
   )
 
-  // Section helper
   function sectionHeader(title: string) {
     return new Paragraph({
       alignment: AlignmentType.CENTER,
       spacing: { before: 160, after: 80 },
       border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: '000000' } },
-      children: [new TextRun({ text: title, bold: true, size: 22, font: 'Calibri' })],
+      children: [new TextRun({ text: title, bold: true, ...sz(22) })],
     })
   }
 
@@ -78,7 +79,7 @@ export async function exportDocx(
     return new Paragraph({
       indent: { left: 360, hanging: 200 },
       spacing: { after: 60 },
-      children: [new TextRun({ text: `●  ${text}`, size: 20, font: 'Calibri' })],
+      children: [new TextRun({ text: `-  ${text}`, ...sz(20) })],
     })
   }
 
@@ -90,18 +91,18 @@ export async function exportDocx(
         tabStops: [{ type: TabStopType.RIGHT, position: 9360 }],
         spacing: { after: 40 },
         children: [
-          new TextRun({ text: edu.school, bold: true, size: 20, font: 'Calibri' }),
-          new TextRun({ text: '\t', size: 20 }),
-          new TextRun({ text: edu.location, bold: true, size: 20, font: 'Calibri' }),
+          new TextRun({ text: edu.school, bold: true, ...sz(20) }),
+          new TextRun({ text: '\t', ...sz(20) }),
+          new TextRun({ text: edu.location, bold: true, ...sz(20) }),
         ],
       }),
       new Paragraph({
         tabStops: [{ type: TabStopType.RIGHT, position: 9360 }],
         spacing: { after: 40 },
         children: [
-          new TextRun({ text: edu.degree, italics: true, size: 20, font: 'Calibri' }),
-          new TextRun({ text: '\t', size: 20 }),
-          new TextRun({ text: edu.dates, italics: true, size: 20, font: 'Calibri' }),
+          new TextRun({ text: edu.degree, italics: true, ...sz(20) }),
+          new TextRun({ text: '\t', ...sz(20) }),
+          new TextRun({ text: edu.dates, italics: true, ...sz(20) }),
         ],
       })
     )
@@ -109,8 +110,8 @@ export async function exportDocx(
       children.push(new Paragraph({
         spacing: { after: 40 },
         children: [
-          new TextRun({ text: 'Awards: ', bold: true, size: 20, font: 'Calibri' }),
-          new TextRun({ text: edu.awards, size: 20, font: 'Calibri' }),
+          new TextRun({ text: 'Awards: ', bold: true, ...sz(20) }),
+          new TextRun({ text: edu.awards, ...sz(20) }),
         ],
       }))
     }
@@ -122,15 +123,15 @@ export async function exportDocx(
     new Paragraph({
       spacing: { after: 60 },
       children: [
-        new TextRun({ text: 'Languages: ', bold: true, size: 20, font: 'Calibri' }),
-        new TextRun({ text: s.skills.languages.join(', '), size: 20, font: 'Calibri' }),
+        new TextRun({ text: 'Languages: ', bold: true, ...sz(20) }),
+        new TextRun({ text: s.skills.languages.join(', '), ...sz(20) }),
       ],
     }),
     new Paragraph({
       spacing: { after: 60 },
       children: [
-        new TextRun({ text: 'Tools: ', bold: true, size: 20, font: 'Calibri' }),
-        new TextRun({ text: s.skills.tools.join(', '), size: 20, font: 'Calibri' }),
+        new TextRun({ text: 'Tools: ', bold: true, ...sz(20) }),
+        new TextRun({ text: s.skills.tools.join(', '), ...sz(20) }),
       ],
     })
   )
@@ -143,18 +144,18 @@ export async function exportDocx(
         tabStops: [{ type: TabStopType.RIGHT, position: 9360 }],
         spacing: { after: 40 },
         children: [
-          new TextRun({ text: exp.company, bold: true, size: 20, font: 'Calibri' }),
-          new TextRun({ text: '\t', size: 20 }),
-          new TextRun({ text: exp.location, bold: true, size: 20, font: 'Calibri' }),
+          new TextRun({ text: exp.company, bold: true, ...sz(20) }),
+          new TextRun({ text: '\t', ...sz(20) }),
+          new TextRun({ text: exp.location, bold: true, ...sz(20) }),
         ],
       }),
       new Paragraph({
         tabStops: [{ type: TabStopType.RIGHT, position: 9360 }],
         spacing: { after: 60 },
         children: [
-          new TextRun({ text: exp.title, italics: true, size: 20, font: 'Calibri' }),
-          new TextRun({ text: '\t', size: 20 }),
-          new TextRun({ text: exp.dates, italics: true, size: 20, font: 'Calibri' }),
+          new TextRun({ text: exp.title, italics: true, ...sz(20) }),
+          new TextRun({ text: '\t', ...sz(20) }),
+          new TextRun({ text: exp.dates, italics: true, ...sz(20) }),
         ],
       })
     )
@@ -168,8 +169,8 @@ export async function exportDocx(
       new Paragraph({
         spacing: { after: 60 },
         children: [
-          new TextRun({ text: proj.name, bold: true, size: 20, font: 'Calibri' }),
-          new TextRun({ text: proj.tech ? ` (${proj.tech})` : '', size: 20, font: 'Calibri' }),
+          new TextRun({ text: proj.name, bold: true, ...sz(20) }),
+          new TextRun({ text: proj.tech ? ` (${proj.tech})` : '', ...sz(20) }),
         ],
       })
     )
