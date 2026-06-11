@@ -65,6 +65,13 @@ export default function DashboardPage() {
     navigate(`/applications/${app.id}`)
   }
 
+  async function handleDelete(e: React.MouseEvent, id: string) {
+    e.stopPropagation()
+    if (!confirm('Delete this application?')) return
+    await supabase.from('applications').delete().eq('id', id)
+    setApplications(prev => prev.filter(a => a.id !== id))
+  }
+
   const filtered = applications
     .filter(a => filter === 'all' || a.status === filter)
     .filter(a => !search || a.company.toLowerCase().includes(search.toLowerCase()) || a.role.toLowerCase().includes(search.toLowerCase()))
@@ -160,8 +167,8 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Table */}
-        {!loading && filtered.length === 0 ? (
+        {/* Empty state */}
+        {!loading && filtered.length === 0 && (
           <div className="bg-white border border-dashed border-gray-300 rounded-xl py-16 text-center">
             <p className="text-3xl mb-3">📋</p>
             <p className="text-gray-600 font-semibold text-sm">
@@ -171,38 +178,69 @@ export default function DashboardPage() {
               {filter === 'all' && !search ? 'Click "+ New" to add your first application' : 'Try a different filter or search'}
             </p>
           </div>
-        ) : (
-          <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
-            {/* Table header */}
-            <div className="grid grid-cols-[120px_1fr_1fr_100px_110px] gap-4 px-5 py-3 border-b border-gray-100 bg-gray-50">
+        )}
+
+        {/* Desktop table */}
+        {filtered.length > 0 && (
+          <div className="hidden sm:block bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+            <div className="grid grid-cols-[120px_1fr_1fr_80px_110px_40px] gap-4 px-5 py-3 border-b border-gray-100 bg-gray-50">
               <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Date</span>
               <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Company</span>
               <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Position</span>
               <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide text-center">Cover Letter</span>
               <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Status</span>
+              <span />
             </div>
-            {/* Rows */}
             {filtered.map((app, i) => (
               <div key={app.id} onClick={() => navigate(`/applications/${app.id}`)}
-                className={`grid grid-cols-[120px_1fr_1fr_100px_110px] gap-4 px-5 py-4 items-center cursor-pointer hover:bg-gray-50 transition-colors ${
+                className={`grid grid-cols-[120px_1fr_1fr_80px_110px_40px] gap-4 px-5 py-4 items-center cursor-pointer hover:bg-gray-50 transition-colors ${
                   i !== filtered.length - 1 ? 'border-b border-gray-100' : ''
                 }`}>
-                {/* Date */}
                 <span className="text-sm text-gray-500">
                   {new Date(app.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                 </span>
-                {/* Company */}
                 <span className="font-semibold text-gray-900 text-sm truncate">{app.company}</span>
-                {/* Position */}
                 <span className="text-sm text-gray-600 truncate">{app.role}</span>
-                {/* Cover letter */}
                 <span className={`text-sm font-medium text-center block ${app.cover_letter ? 'text-violet-600' : 'text-gray-300'}`}>
                   {app.cover_letter ? '✓' : '—'}
                 </span>
-                {/* Status */}
                 <span className={`inline-flex items-center justify-center text-xs font-semibold px-3 py-1 rounded-full ${STATUS_CONFIG[app.status].color}`}>
                   {STATUS_CONFIG[app.status].label}
                 </span>
+                <button
+                  onClick={(e) => handleDelete(e, app.id)}
+                  className="text-gray-300 hover:text-red-400 transition-colors text-sm font-medium"
+                >✕</button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Mobile cards */}
+        {filtered.length > 0 && (
+          <div className="sm:hidden space-y-2">
+            {filtered.map(app => (
+              <div key={app.id} onClick={() => navigate(`/applications/${app.id}`)}
+                className="bg-white border border-gray-200 rounded-xl px-4 py-3 shadow-sm cursor-pointer hover:border-gray-300 transition-colors">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="font-semibold text-gray-900 text-sm truncate">{app.company}</p>
+                    <p className="text-gray-500 text-xs truncate mt-0.5">{app.role}</p>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${STATUS_CONFIG[app.status].color}`}>
+                      {STATUS_CONFIG[app.status].label}
+                    </span>
+                    <button onClick={(e) => handleDelete(e, app.id)}
+                      className="text-gray-300 hover:text-red-400 transition-colors text-sm">✕</button>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 mt-2">
+                  <span className="text-xs text-gray-400">
+                    {new Date(app.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                  </span>
+                  {app.cover_letter && <span className="text-xs text-violet-600 font-medium">✓ Cover letter</span>}
+                </div>
               </div>
             ))}
           </div>
