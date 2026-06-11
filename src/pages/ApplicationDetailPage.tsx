@@ -54,6 +54,7 @@ interface Application {
   applied_through: string | null
   tailored_resume: TailoredResume | null
   fit_analysis: JobFitAnalysis | null
+  cover_letter: string | null
   created_at: string
 }
 
@@ -94,6 +95,7 @@ export default function ApplicationDetailPage() {
       setNotesValue(a?.notes ?? '')
       setStructure(resumes?.[0]?.content?.structure ?? null)
       setRawText(resumes?.[0]?.content?.raw_text ?? '')
+      if (a?.cover_letter) setCoverLetter(a.cover_letter)
       setLoading(false)
     }
     load()
@@ -147,6 +149,7 @@ export default function ApplicationDetailPage() {
     try {
       const result = await generateCoverLetter(app.company, app.role, app.job_description, structure?.header)
       setCoverLetter(result)
+      await supabase.from('applications').update({ cover_letter: result }).eq('id', app.id)
     } catch (err: any) {
       alert('Cover letter generation failed: ' + (err.message ?? 'Unknown error'))
     } finally {
