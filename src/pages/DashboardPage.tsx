@@ -202,7 +202,7 @@ export default function DashboardPage() {
                 <span className="text-sm text-gray-600 truncate">{app.role}</span>
                 {/* Cover letter */}
                 <span className={`text-sm font-medium ${app.cover_letter ? 'text-violet-600' : 'text-gray-300'}`}>
-                  {app.cover_letter ? '✓ Yes' : '—'}
+                  {app.cover_letter ? '✓' : '—'}
                 </span>
                 {/* Status */}
                 <span className={`inline-flex items-center justify-center text-xs font-semibold px-3 py-1 rounded-full ${STATUS_CONFIG[app.status].color}`}>
