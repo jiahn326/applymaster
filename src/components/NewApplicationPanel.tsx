@@ -44,7 +44,9 @@ export default function NewApplicationPanel({ onSaved, onClose }: Props) {
   const [notes, setNotes] = useState('')
   const [appliedThrough, setAppliedThrough] = useState<AppliedThrough>('linkedin')
   const [analysis, setAnalysis] = useState<JobFitAnalysis | null>(null)
+  const [resumeRawText, setResumeRawText] = useState<string | undefined>()
   const [saving, setSaving] = useState(false)
+  const [tailoring, setTailoring] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const pasteRef = useRef<HTMLTextAreaElement>(null)
 
@@ -80,6 +82,7 @@ export default function NewApplicationPanel({ onSaved, onClose }: Props) {
 
       const rawText = resumeData.data?.[0]?.content?.raw_text as string | undefined
       const currentLocation = resumeData.data?.[0]?.content?.current_location as string | undefined
+      setResumeRawText(rawText)
 
       const result = await Promise.race([
         api.analyzeAndExtract(content, rawText, currentLocation),
@@ -118,7 +121,22 @@ export default function NewApplicationPanel({ onSaved, onClose }: Props) {
         .select()
         .single()
       if (insertError) throw insertError
-      onSaved(data)
+      setSaving(false)
+
+      // Auto-tailor in background
+      if (resumeRawText && jobDescription) {
+        setTailoring(true)
+        try {
+          const { tailorResume } = await import('../lib/tailorResume')
+          const tailored = await tailorResume(resumeRawText, jobDescription)
+          await supabase.from('applications').update({ tailored_resume: tailored }).eq('id', data.id)
+          onSaved({ ...data, tailored_resume: tailored })
+        } catch {
+          onSaved(data)
+        }
+      } else {
+        onSaved(data)
+      }
     } catch (err: any) {
       setError(err.message ?? 'Failed to save.')
       setSaving(false)
@@ -328,10 +346,10 @@ export default function NewApplicationPanel({ onSaved, onClose }: Props) {
         <div className="px-6 py-4 border-t border-gray-100 shrink-0 space-y-2">
           <button
             onClick={handleAutoSave}
-            disabled={saving}
+            disabled={saving || tailoring}
             className={`w-full ${v.btn} text-white font-semibold py-2.5 rounded-xl transition-colors text-sm disabled:opacity-60`}
           >
-            {saving ? 'Saving...' : analysis?.verdict === 'Skip' ? 'Apply anyway →' : "Yes, I'll apply! →"}
+            {saving ? 'Saving...' : tailoring ? '✨ Tailoring resume...' : analysis?.verdict === 'Skip' ? 'Apply anyway →' : "Yes, I'll apply! →"}
           </button>
           <button
             onClick={() => { setPasteText(''); setStep('paste') }}
