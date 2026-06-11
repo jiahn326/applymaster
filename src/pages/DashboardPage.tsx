@@ -192,12 +192,7 @@ export default function DashboardPage() {
                   {new Date(app.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                 </span>
                 {/* Company */}
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <div className="w-7 h-7 rounded-md bg-gray-100 flex items-center justify-center shrink-0">
-                    <span className="text-xs font-bold text-gray-500">{app.company.charAt(0).toUpperCase()}</span>
-                  </div>
-                  <span className="font-semibold text-gray-900 text-sm truncate">{app.company}</span>
-                </div>
+                <span className="font-semibold text-gray-900 text-sm truncate">{app.company}</span>
                 {/* Position */}
                 <span className="text-sm text-gray-600 truncate">{app.role}</span>
                 {/* Cover letter */}
