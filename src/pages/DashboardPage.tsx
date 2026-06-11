@@ -130,6 +130,13 @@ export default function DashboardPage() {
 
         {/* Toolbar */}
         <div className="flex items-center justify-between mb-4">
+          <button
+            onClick={() => setShowNewPanel(true)}
+            disabled={!hasResume}
+            className="flex items-center gap-1.5 bg-gray-900 hover:bg-gray-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors shadow-sm"
+          >
+            <span className="text-base leading-none">+</span> New
+          </button>
           <div className="flex gap-1 bg-gray-100 p-1 rounded-lg overflow-x-auto">
             {FILTER_TABS.map(tab => (
               <button key={tab.value} onClick={() => setFilter(tab.value)}
@@ -145,13 +152,6 @@ export default function DashboardPage() {
               </button>
             ))}
           </div>
-          <button
-            onClick={() => setShowNewPanel(true)}
-            disabled={!hasResume}
-            className="flex items-center gap-1.5 bg-gray-900 hover:bg-gray-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors shadow-sm"
-          >
-            <span className="text-base leading-none">+</span> New
-          </button>
         </div>
 
         {/* Empty state */}
