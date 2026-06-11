@@ -74,7 +74,7 @@ function twoColPara(left: string, right: string, bold = false, italic = false) {
 }
 
 function sectionHeader(title: string) {
-  return p(r(title, { bold: true, sz: 22 }), { center: true, spBefore: 160, spAfter: 80, border: true })
+  return p(r(title, { bold: true, sz: 22 }), { spBefore: 160, spAfter: 80, border: true })
 }
 
 function bullet(text: string) {
@@ -188,7 +188,7 @@ export function exportPdf(
     y += 8
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(11)
-    doc.text(title, pageWidth / 2, y, { align: 'center' })
+    doc.text(title, ml, y)
     y += 4
     doc.setLineWidth(0.5)
     doc.line(ml, y, pageWidth - mr, y)
@@ -293,7 +293,7 @@ export function exportGoogleDocs(
   const rows: string[] = []
 
   const secHeader = (title: string) =>
-    `<h2 style="text-align:center;font-size:11pt;border-bottom:1px solid #000;margin:12pt 0 4pt;">${e(title)}</h2>`
+    `<h2 style="font-size:11pt;border-bottom:1px solid #000;margin:12pt 0 4pt;">${e(title)}</h2>`
 
   const twoCol = (left: string, right: string, bold = false, italic = false) => {
     const tag = bold ? 'strong' : italic ? 'em' : 'span'
