@@ -27,6 +27,7 @@ Deno.serve(async (req) => {
     else if (action === 'analyzeJobFit')   result = await analyzeJobFit(client, payload.resumeRawText, payload.jobDescription, payload.currentLocation)
     else if (action === 'generateCoverLetter') result = await generateCoverLetter(client, payload.company, payload.role, payload.jobDescription, payload.header)
     else if (action === 'extractJobInfo')  result = await extractJobInfo(client, payload.content)
+    else if (action === 'analyzeAndExtract') result = await analyzeAndExtract(client, payload.content, payload.resumeRawText, payload.currentLocation)
     else if (action === 'parseResumeStructure') result = await parseResumeStructure(client, payload.rawText)
     else return new Response(JSON.stringify({ error: 'Unknown action' }), { status: 400, headers: corsHeaders })
 
@@ -180,6 +181,37 @@ ${content}
 
 Return JSON only:
 { "company": "", "role": "", "jobDescription": "" }`, 2048)
+  return JSON.parse(text)
+}
+
+async function analyzeAndExtract(client: Anthropic, content: string, resumeRawText?: string, currentLocation?: string) {
+  const hasResume = !!resumeRawText
+  const text = await callClaude(client, `You are a job application assistant. From the job posting below, do two things in one pass:
+
+1. Extract the job info
+2. ${hasResume ? 'Analyze how well the resume matches the job' : 'Skip fit analysis (no resume provided)'}
+
+JOB POSTING:
+${content}
+
+${hasResume ? `RESUME:
+${resumeRawText}
+${currentLocation ? `\nCANDIDATE'S CURRENT LOCATION: ${currentLocation}` : ''}` : ''}
+
+Return JSON only:
+{
+  "jobInfo": { "company": "", "role": "", "jobDescription": "" },
+  "fitAnalysis": ${hasResume ? `{
+    "overallScore": <0-100>,
+    "verdict": "Apply" | "Maybe" | "Skip",
+    "verdictReason": "<one sentence>",
+    "categories": [
+      { "label": "Skills Match", "score": <0-100>, "verdict": "strong"|"good"|"reach"|"weak", "summary": "<1-2 sentences>" },
+      { "label": "Experience Level", "score": <0-100>, "verdict": "strong"|"good"|"reach"|"weak", "summary": "<1-2 sentences>" },
+      { "label": "Location", "score": <0-100>, "verdict": "strong"|"good"|"reach"|"weak", "summary": "<1-2 sentences>" }
+    ]
+  }` : 'null'}
+}`, 3072)
   return JSON.parse(text)
 }
 

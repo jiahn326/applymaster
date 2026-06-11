@@ -22,6 +22,9 @@ export const api = {
   extractJobInfo: (content: string) =>
     callProxy('extractJobInfo', { content }),
 
+  analyzeAndExtract: (content: string, resumeRawText?: string, currentLocation?: string) =>
+    callProxy('analyzeAndExtract', { content, resumeRawText, currentLocation }),
+
   parseResumeStructure: (rawText: string) =>
     callProxy('parseResumeStructure', { rawText }),
 }

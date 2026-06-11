@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
-import { extractJobInfo } from '../lib/extractJobInfo'
-import { analyzeJobFit, type JobFitAnalysis } from '../lib/analyzeJobFit'
+import { api } from '../lib/api'
+import type { JobFitAnalysis } from '../lib/analyzeJobFit'
 
 type AppliedThrough = 'linkedin' | 'indeed' | 'company' | 'referral' | 'other'
 type Step = 'paste' | 'analyzing' | 'analysis' | 'form'
@@ -81,14 +81,13 @@ export default function NewApplicationPanel({ onSaved, onClose }: Props) {
       const rawText = resumeData.data?.[0]?.content?.raw_text as string | undefined
       const currentLocation = resumeData.data?.[0]?.content?.current_location as string | undefined
 
-      const [info, fit] = await Promise.race([
-        Promise.all([
-          extractJobInfo(content),
-          rawText ? analyzeJobFit(rawText, content, currentLocation) : Promise.resolve(null),
-        ]),
+      const result = await Promise.race([
+        api.analyzeAndExtract(content, rawText, currentLocation),
         timeout,
       ])
 
+      const info = result.jobInfo
+      const fit = result.fitAnalysis
       if (info.company) setCompany(info.company)
       if (info.role) setRole(info.role)
       if (info.jobDescription) setJobDescription(info.jobDescription)
