@@ -62,19 +62,24 @@ export default function NewApplicationPanel({ onSaved, onClose }: Props) {
 
     try {
       const trimmed = text.trim()
+      const isUrl = /^https?:\/\//i.test(trimmed)
+      if (isUrl) setJobUrl(trimmed)
 
-      let content = trimmed
-      if (/^https?:\/\//i.test(trimmed)) {
-        setJobUrl(trimmed)
-        try {
-          const res = await fetch(`https://r.jina.ai/${trimmed}`, { headers: { 'Accept': 'text/plain' } })
-          if (res.ok) content = await res.text()
-        } catch { /* use raw URL */ }
-      }
+      // Fetch URL content and resume in parallel
+      const [content, resumeData] = await Promise.race([
+        Promise.all([
+          isUrl
+            ? fetch(`https://r.jina.ai/${trimmed}`, { headers: { 'Accept': 'text/plain' } })
+                .then(r => r.ok ? r.text() : trimmed)
+                .catch(() => trimmed)
+            : Promise.resolve(trimmed),
+          supabase.from('resumes').select('content').order('created_at', { ascending: false }).limit(1),
+        ]),
+        timeout,
+      ])
 
-      const { data: resumes } = await supabase.from('resumes').select('content').order('created_at', { ascending: false }).limit(1)
-      const rawText = resumes?.[0]?.content?.raw_text as string | undefined
-      const currentLocation = resumes?.[0]?.content?.current_location as string | undefined
+      const rawText = resumeData.data?.[0]?.content?.raw_text as string | undefined
+      const currentLocation = resumeData.data?.[0]?.content?.current_location as string | undefined
 
       const [info, fit] = await Promise.race([
         Promise.all([

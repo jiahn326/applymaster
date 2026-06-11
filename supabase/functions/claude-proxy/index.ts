@@ -51,7 +51,7 @@ async function callClaude(client: Anthropic, prompt: string, maxTokens = 4096) {
 }
 
 async function tailorResume(client: Anthropic, resumeRawText: string, jobDescription: string) {
-  const text = await callClaude(client, `You are a resume rewriter for a software engineer. Rewrite experience bullets to match the job description provided.
+  const text = await callClaude(client, `You are a resume rewriter for a software engineer. Rewrite experience bullets to match the job description provided. Follow these rules strictly:
 
 TONE & STYLE:
 - Write like a real engineer wrote it, not a career coach
@@ -60,13 +60,32 @@ TONE & STYLE:
 - Always start bullets with a past-tense action verb
 
 BANNED WORDS & PHRASES (never use these):
-seamless, seamlessly, robust, leveraged, spearheaded, ensured, passionate, passion, "from start to finish", "plan, shape, and build", "improving performance and reliability", "improving team productivity", "critical technical decisions", "across the stack", owning, "took ownership of", "enhancing the process of", "in a fast-paced environment", detail-oriented, results-driven, "collaborated closely", "worked closely"
+- seamless / seamlessly
+- robust
+- leveraged
+- spearheaded
+- ensured
+- passionate / passion
+- from start to finish
+- plan, shape, and build
+- improving performance and reliability
+- improving team productivity
+- critical technical decisions
+- across the stack
+- owning / took ownership of
+- enhancing the process of
+- in a fast-paced environment
+- detail-oriented
+- results-driven
+- collaborated closely
+- worked closely
 
 BULLET RULES:
 - Lead with what you built or did, not how you felt about it
 - Include specific tech, numbers, or scale when available
 - Skip vague outcomes unless you have a real metric
 - Don't repeat the same verb more than once per section
+- Do NOT end bullets with a period
 - Never fabricate experience, skills, or achievements
 - Only rewrite existing content to better match the JD's language
 
