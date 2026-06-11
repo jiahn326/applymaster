@@ -25,7 +25,7 @@ Deno.serve(async (req) => {
     let result
     if (action === 'tailorResume')         result = await tailorResume(client, payload.resumeRawText, payload.jobDescription)
     else if (action === 'analyzeJobFit')   result = await analyzeJobFit(client, payload.resumeRawText, payload.jobDescription, payload.currentLocation)
-    else if (action === 'generateCoverLetter') result = await generateCoverLetter(client, payload.company, payload.role, payload.jobDescription, payload.header)
+    else if (action === 'generateCoverLetter') result = await generateCoverLetter(client, payload.company, payload.role, payload.jobDescription, payload.header, payload.today)
     else if (action === 'extractJobInfo')  result = await extractJobInfo(client, payload.content)
     else if (action === 'analyzeAndExtract') result = await analyzeAndExtract(client, payload.content, payload.resumeRawText, payload.currentLocation)
     else if (action === 'parseResumeStructure') result = await parseResumeStructure(client, payload.rawText)
@@ -132,8 +132,8 @@ Return JSON only:
   return JSON.parse(text)
 }
 
-async function generateCoverLetter(client: Anthropic, company: string, role: string, jobDescription: string, header?: { name: string; contact: string }) {
-  const today = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+async function generateCoverLetter(client: Anthropic, company: string, role: string, jobDescription: string, header?: { name: string; contact: string }, today?: string) {
+  today = today ?? new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
   const headerName = header?.name ?? 'My Name'
   const headerContact = header?.contact ?? 'phone | email | linkedin'
   const TEMPLATE = `${headerName}

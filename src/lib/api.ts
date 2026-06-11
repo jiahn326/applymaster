@@ -16,8 +16,10 @@ export const api = {
   analyzeJobFit: (resumeRawText: string, jobDescription: string, currentLocation?: string) =>
     callProxy('analyzeJobFit', { resumeRawText, jobDescription, currentLocation }),
 
-  generateCoverLetter: (company: string, role: string, jobDescription: string, header?: { name: string; contact: string }) =>
-    callProxy('generateCoverLetter', { company, role, jobDescription, header }).then(d => d.text as string),
+  generateCoverLetter: (company: string, role: string, jobDescription: string, header?: { name: string; contact: string }) => {
+    const today = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+    return callProxy('generateCoverLetter', { company, role, jobDescription, header, today }).then(d => d.text as string)
+  },
 
   extractJobInfo: (content: string) =>
     callProxy('extractJobInfo', { content }),
