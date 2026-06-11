@@ -178,7 +178,7 @@ export default function DashboardPage() {
               <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Date</span>
               <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Company</span>
               <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Position</span>
-              <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Cover Letter</span>
+              <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide text-center">Cover Letter</span>
               <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Status</span>
             </div>
             {/* Rows */}
@@ -201,7 +201,7 @@ export default function DashboardPage() {
                 {/* Position */}
                 <span className="text-sm text-gray-600 truncate">{app.role}</span>
                 {/* Cover letter */}
-                <span className={`text-sm font-medium ${app.cover_letter ? 'text-violet-600' : 'text-gray-300'}`}>
+                <span className={`text-sm font-medium text-center block ${app.cover_letter ? 'text-violet-600' : 'text-gray-300'}`}>
                   {app.cover_letter ? '✓' : '—'}
                 </span>
                 {/* Status */}
