@@ -16,6 +16,7 @@ interface Application {
   status: Status
   notes: string | null
   applied_through: string | null
+  cover_letter: string | null
 }
 
 const STATUS_CONFIG: Record<Status, { label: string; dot: string }> = {
