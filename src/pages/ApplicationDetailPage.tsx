@@ -312,25 +312,23 @@ export default function ApplicationDetailPage() {
               <div className="space-y-5">
                 {app.tailored_resume && structure ? (
                   <>
-                    {/* Export + Re-tailor */}
-                    <div className="grid grid-cols-2 gap-2">
+                    {/* Export row + Re-tailor */}
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide mr-1">Export</span>
                       <button onClick={() => lazyExportPdf(structure, app.tailored_resume!, fileName)}
-                        className="bg-gray-50 border border-gray-200 text-gray-700 font-semibold py-2.5 rounded-xl hover:bg-gray-100 transition-all text-sm">↓ PDF</button>
+                        className="bg-gray-50 border border-gray-200 text-gray-700 font-medium px-3 py-1.5 rounded-lg hover:bg-gray-100 transition-all text-xs">↓ PDF</button>
                       <button onClick={() => lazyExportDocx(structure, app.tailored_resume!, fileName)}
-                        className="bg-gray-50 border border-gray-200 text-gray-700 font-semibold py-2.5 rounded-xl hover:bg-gray-100 transition-all text-sm">↓ DOCX</button>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2">
+                        className="bg-gray-50 border border-gray-200 text-gray-700 font-medium px-3 py-1.5 rounded-lg hover:bg-gray-100 transition-all text-xs">↓ DOCX</button>
                       <button
                         onClick={() => lazyExportGoogleDocs(structure, app.tailored_resume!)}
-                        className="bg-blue-50 border border-blue-200 text-blue-700 font-semibold py-2.5 rounded-xl hover:bg-blue-100 transition-all text-sm"
-                        title="Downloads an HTML file — upload to Google Drive, then open with Google Docs"
-                      >↓ Google Docs (HTML)</button>
+                        className="bg-gray-50 border border-gray-200 text-gray-700 font-medium px-3 py-1.5 rounded-lg hover:bg-gray-100 transition-all text-xs"
+                        title="Download HTML → upload to Google Drive → open with Google Docs"
+                      >↓ Google Docs</button>
                       <button onClick={handleTailor} disabled={tailoring || !app.job_description}
-                        className="bg-gray-50 border border-gray-200 text-gray-500 font-medium py-2.5 rounded-xl hover:bg-gray-100 transition-all text-sm disabled:opacity-40">
-                        {tailoring ? '✨...' : '↺ Re-tailor'}
+                        className="ml-auto bg-gray-900 hover:bg-gray-700 disabled:opacity-40 text-white font-medium px-3 py-1.5 rounded-lg transition-all text-xs">
+                        {tailoring ? '✨ Re-tailoring...' : '↺ Re-tailor'}
                       </button>
                     </div>
-                    {/* New diff view */}
                     <ResumeChangesView tailored={app.tailored_resume} structure={structure} />
                   </>
                 ) : (
@@ -349,7 +347,7 @@ export default function ApplicationDetailPage() {
                 {coverLetter ? (
                   <>
                     <div className="flex items-center justify-between">
-                      <p className="text-sm text-gray-500">날짜 ~ Sincerely 위까지 복사</p>
+                      <p className="text-xs text-gray-400">Copies from date line to before Sincerely</p>
                       <button onClick={() => {
                         const lines = coverLetter.split('\n')
                         const dateIdx = lines.findIndex(l => /^(January|February|March|April|May|June|July|August|September|October|November|December)/i.test(l.trim()))
@@ -362,8 +360,8 @@ export default function ApplicationDetailPage() {
                         setCopiedCL(true)
                         setTimeout(() => setCopiedCL(false), 1500)
                       }}
-                        className="text-xs font-medium px-3 py-1 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors">
-                        {copiedCL ? <span className="text-emerald-600">✓ Copied!</span> : <span className="text-gray-500">Copy</span>}
+                        className="text-xs font-medium px-3 py-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors">
+                        {copiedCL ? <span className="text-emerald-600">✓ Copied!</span> : <span className="text-gray-600">Copy body</span>}
                       </button>
                     </div>
                     <pre className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed font-sans bg-gray-50 rounded-xl p-4 border border-gray-100">
@@ -386,12 +384,17 @@ export default function ApplicationDetailPage() {
           </div>
         </div>
 
-        {/* Job Description */}
+        {/* Job Description — collapsible */}
         {app.job_description && (
-          <div className="bg-white rounded-2xl border border-gray-200 px-5 py-4 shadow-sm">
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Job Description</p>
-            <p className="text-gray-600 text-sm whitespace-pre-wrap leading-relaxed">{app.job_description}</p>
-          </div>
+          <details className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+            <summary className="px-5 py-4 text-xs font-semibold text-gray-400 uppercase tracking-wide cursor-pointer hover:bg-gray-50 transition-colors list-none flex items-center justify-between">
+              Job Description
+              <span className="text-gray-300 text-sm">▾</span>
+            </summary>
+            <div className="px-5 pb-5 border-t border-gray-100 pt-4">
+              <p className="text-gray-600 text-sm whitespace-pre-wrap leading-relaxed">{app.job_description}</p>
+            </div>
+          </details>
         )}
       </main>
       {/* Tailoring overlay */}
