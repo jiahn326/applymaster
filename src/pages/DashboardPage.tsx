@@ -49,7 +49,7 @@ export default function DashboardPage() {
       const [{ data: resumes }, { data: apps }] = await Promise.all([
         supabase.from('resumes').select('id').limit(1),
         supabase.from('applications')
-          .select('id, created_at, company, role, job_url, status, notes, applied_through, cover_letter')
+          .select('*')
           .order('created_at', { ascending: false }),
       ])
       setHasResume((resumes?.length ?? 0) > 0)
