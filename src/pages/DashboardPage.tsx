@@ -181,22 +181,31 @@ export default function DashboardPage() {
                   <span className="text-gray-300 text-xs">·</span>
                   <p className="text-gray-500 text-sm truncate">{app.role}</p>
                 </div>
-                <div className="flex items-center gap-3 mt-0.5">
-                  <p className="text-gray-400 text-xs">
-                    {new Date(app.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                  </p>
-                  {app.applied_through && <span className="text-gray-400 text-xs capitalize">via {app.applied_through}</span>}
+                <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                  {/* Applied date */}
+                  <span className="flex items-center gap-1 text-xs text-gray-500 bg-gray-50 border border-gray-200 px-2 py-0.5 rounded-full">
+                    📅 {new Date(app.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                  </span>
+                  {/* Status */}
+                  <span className={`flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full border ${
+                    app.status === 'applied'      ? 'bg-blue-50 text-blue-600 border-blue-100' :
+                    app.status === 'interviewing' ? 'bg-amber-50 text-amber-600 border-amber-100' :
+                    app.status === 'offer'        ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
+                                                    'bg-red-50 text-red-500 border-red-100'
+                  }`}>
+                    <span className={`w-1.5 h-1.5 rounded-full ${STATUS_CONFIG[app.status].dot}`} />
+                    {STATUS_CONFIG[app.status].label}
+                  </span>
+                  {/* Cover letter */}
+                  <span className={`text-xs px-2 py-0.5 rounded-full border ${
+                    app.cover_letter
+                      ? 'bg-violet-50 text-violet-600 border-violet-100'
+                      : 'bg-gray-50 text-gray-400 border-gray-200'
+                  }`}>
+                    {app.cover_letter ? '✉ Cover letter' : 'No cover letter'}
+                  </span>
                 </div>
               </div>
-              <span className={`flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full shrink-0 ${
-                app.status === 'applied'      ? 'bg-blue-50 text-blue-600' :
-                app.status === 'interviewing' ? 'bg-amber-50 text-amber-600' :
-                app.status === 'offer'        ? 'bg-emerald-50 text-emerald-600' :
-                                                'bg-red-50 text-red-500'
-              }`}>
-                <span className={`w-1.5 h-1.5 rounded-full ${STATUS_CONFIG[app.status].dot}`} />
-                {STATUS_CONFIG[app.status].label}
-              </span>
             </div>
           ))}
         </div>
