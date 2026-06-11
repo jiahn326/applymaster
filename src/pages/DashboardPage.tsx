@@ -17,6 +17,7 @@ interface Application {
   notes: string | null
   applied_through: string | null
   cover_letter: string | null
+  fit_analysis: { verdict: 'Apply' | 'Maybe' | 'Skip'; overallScore: number } | null
 }
 
 const STATUS_CONFIG: Record<Status, { label: string; color: string }> = {
@@ -70,6 +71,13 @@ export default function DashboardPage() {
     if (!confirm('Delete this application?')) return
     await supabase.from('applications').delete().eq('id', id)
     setApplications(prev => prev.filter(a => a.id !== id))
+  }
+
+  async function handleStatusChange(e: React.ChangeEvent<HTMLSelectElement>, id: string) {
+    e.stopPropagation()
+    const status = e.target.value as Status
+    await supabase.from('applications').update({ status }).eq('id', id)
+    setApplications(prev => prev.map(a => a.id === id ? { ...a, status } : a))
   }
 
   const filtered = applications
@@ -183,17 +191,18 @@ export default function DashboardPage() {
         {/* Desktop table */}
         {filtered.length > 0 && (
           <div className="hidden sm:block bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
-            <div className="grid grid-cols-[120px_1fr_1fr_80px_110px_40px] gap-4 px-5 py-3 border-b border-gray-100 bg-gray-50">
+            <div className="grid grid-cols-[110px_1fr_1fr_70px_60px_130px_36px] gap-3 px-5 py-3 border-b border-gray-100 bg-gray-50">
               <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Date</span>
               <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Company</span>
               <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Position</span>
               <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide text-center">Cover Letter</span>
+              <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide text-center">Fit</span>
               <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Status</span>
               <span />
             </div>
             {filtered.map((app, i) => (
               <div key={app.id} onClick={() => navigate(`/applications/${app.id}`)}
-                className={`grid grid-cols-[120px_1fr_1fr_80px_110px_40px] gap-4 px-5 py-4 items-center cursor-pointer hover:bg-gray-50 transition-colors ${
+                className={`grid grid-cols-[110px_1fr_1fr_70px_60px_130px_36px] gap-3 px-5 py-3.5 items-center cursor-pointer hover:bg-gray-50 transition-colors ${
                   i !== filtered.length - 1 ? 'border-b border-gray-100' : ''
                 }`}>
                 <span className="text-sm text-gray-500">
@@ -204,13 +213,27 @@ export default function DashboardPage() {
                 <span className={`text-sm font-medium text-center block ${app.cover_letter ? 'text-violet-600' : 'text-gray-300'}`}>
                   {app.cover_letter ? '✓' : '—'}
                 </span>
-                <span className={`inline-flex items-center justify-center text-xs font-semibold px-3 py-1 rounded-full ${STATUS_CONFIG[app.status].color}`}>
-                  {STATUS_CONFIG[app.status].label}
+                {/* Fit score */}
+                <span className={`text-xs font-semibold text-center block ${
+                  !app.fit_analysis ? 'text-gray-300' :
+                  app.fit_analysis.verdict === 'Apply' ? 'text-emerald-600' :
+                  app.fit_analysis.verdict === 'Maybe' ? 'text-amber-500' : 'text-red-400'
+                }`}>
+                  {app.fit_analysis ? app.fit_analysis.overallScore : '—'}
                 </span>
-                <button
-                  onClick={(e) => handleDelete(e, app.id)}
-                  className="text-gray-300 hover:text-red-400 transition-colors"
-                >
+                {/* Inline status dropdown */}
+                <div onClick={e => e.stopPropagation()}>
+                  <select
+                    value={app.status}
+                    onChange={e => handleStatusChange(e, app.id)}
+                    className={`text-xs font-semibold px-2.5 py-1 rounded-full border-0 cursor-pointer focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-gray-400 ${STATUS_CONFIG[app.status].color}`}
+                  >
+                    {(Object.keys(STATUS_CONFIG) as Status[]).map(s => (
+                      <option key={s} value={s}>{STATUS_CONFIG[s].label}</option>
+                    ))}
+                  </select>
+                </div>
+                <button onClick={(e) => handleDelete(e, app.id)} className="text-gray-300 hover:text-red-400 transition-colors">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/>
                   </svg>
@@ -231,10 +254,16 @@ export default function DashboardPage() {
                     <p className="font-semibold text-gray-900 text-sm truncate">{app.company}</p>
                     <p className="text-gray-500 text-xs truncate mt-0.5">{app.role}</p>
                   </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${STATUS_CONFIG[app.status].color}`}>
-                      {STATUS_CONFIG[app.status].label}
-                    </span>
+                  <div className="flex items-center gap-2 shrink-0" onClick={e => e.stopPropagation()}>
+                    <select
+                      value={app.status}
+                      onChange={e => handleStatusChange(e, app.id)}
+                      className={`text-xs font-semibold px-2.5 py-1 rounded-full border-0 cursor-pointer focus:outline-none ${STATUS_CONFIG[app.status].color}`}
+                    >
+                      {(Object.keys(STATUS_CONFIG) as Status[]).map(s => (
+                        <option key={s} value={s}>{STATUS_CONFIG[s].label}</option>
+                      ))}
+                    </select>
                     <button onClick={(e) => handleDelete(e, app.id)}
                       className="text-gray-300 hover:text-red-400 transition-colors">
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
