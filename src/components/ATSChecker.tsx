@@ -238,14 +238,14 @@ export default function ATSChecker({ onFix }: { onFix?: () => void } = {}) {
   return (
     <div className="space-y-6">
       <div className="space-y-1">
-        <p className="text-xs font-semibold text-violet-600 uppercase tracking-widest">ATS Format Checker</p>
+        <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: '#5b5bd6' }}>ATS Format Checker</p>
         <h2 className="text-xl font-bold text-gray-900">Is your resume ATS-proof?</h2>
         <p className="text-sm text-gray-500">
           Paste your resume below. We'll flag formatting issues that cause automatic rejection. No AI needed, results are instant.
         </p>
       </div>
 
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-xl overflow-hidden" style={{ boxShadow: '0 1px 3px hsl(240 20% 20% / 0.06), 0 4px 12px hsl(240 20% 20% / 0.08)' }}>
         <label className="block px-4 pt-4 pb-1 text-xs font-semibold text-gray-400 uppercase tracking-wide">
           Your Resume
         </label>
@@ -280,7 +280,7 @@ export default function ATSChecker({ onFix }: { onFix?: () => void } = {}) {
 
       {result && (
         <div className="space-y-5">
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 flex flex-col sm:flex-row items-center gap-6">
+          <div className="bg-white rounded-xl p-6 flex flex-col sm:flex-row items-center gap-6" style={{ boxShadow: '0 1px 3px hsl(240 20% 20% / 0.06), 0 4px 12px hsl(240 20% 20% / 0.08)' }}>
             <ScoreRing score={result.score} />
             <div className="flex-1 space-y-3 text-center sm:text-left">
               <div>
@@ -301,7 +301,7 @@ export default function ATSChecker({ onFix }: { onFix?: () => void } = {}) {
                   if (count === 0) return null
                   const cfg = severityConfig[s]
                   return (
-                    <span key={s} className={`text-xs font-medium px-2.5 py-1 rounded-full ${cfg.bg} ${cfg.color} border ${cfg.border}`}>
+                    <span key={s} className={`text-xs font-medium px-2.5 py-1 rounded-lg ${cfg.bg} ${cfg.color} border ${cfg.border}`}>
                       {count} {s} risk
                     </span>
                   )
@@ -318,7 +318,7 @@ export default function ATSChecker({ onFix }: { onFix?: () => void } = {}) {
           )}
 
           {result.passed.length > 0 && (
-            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-4 space-y-2">
+            <div className="bg-white rounded-xl p-4 space-y-2" style={{ boxShadow: '0 1px 3px hsl(240 20% 20% / 0.06), 0 4px 12px hsl(240 20% 20% / 0.08)' }}>
               <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Passed checks</p>
               <ul className="space-y-1.5">
                 {result.passed.map((p, i) => (
@@ -336,7 +336,7 @@ export default function ATSChecker({ onFix }: { onFix?: () => void } = {}) {
           {onFix && (
             <button
               onClick={onFix}
-              className="w-full bg-gray-900 hover:bg-gray-700 text-white font-semibold py-3 rounded-xl transition-colors"
+              className="w-full bg-gray-900 hover:bg-gray-700 text-white font-semibold py-3 rounded-lg transition-colors"
             >
               Fix it: tailor your resume →
             </button>

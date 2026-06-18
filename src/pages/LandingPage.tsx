@@ -1,5 +1,17 @@
 import { useNavigate } from 'react-router-dom'
+import { FileText, Mail, ShieldCheck, LayoutDashboard } from 'lucide-react'
 import ATSChecker from '../components/ATSChecker'
+
+const cardShadow = {
+  boxShadow: '0 1px 3px hsl(240 20% 20% / 0.06), 0 4px 12px hsl(240 20% 20% / 0.08)',
+}
+
+const FEATURES = [
+  { icon: FileText,       title: 'Resume tailoring',    desc: 'AI rewrites your bullets to match each job description' },
+  { icon: Mail,           title: 'Cover letters',        desc: 'Generates a personalized cover letter in one click' },
+  { icon: ShieldCheck,    title: 'ATS checker',          desc: 'Instantly flags formatting issues that cause auto-rejection' },
+  { icon: LayoutDashboard, title: 'Application tracking', desc: "Track every job you've applied to in one place" },
+]
 
 export default function LandingPage() {
   const navigate = useNavigate()
@@ -34,13 +46,16 @@ export default function LandingPage() {
         <div className="flex items-center justify-center gap-3">
           <button
             onClick={() => document.getElementById('ats')?.scrollIntoView({ behavior: 'smooth' })}
-            className="bg-gray-900 hover:bg-gray-700 text-white font-semibold px-6 py-3 rounded-xl transition-colors"
+            className="text-white font-semibold px-6 py-3 rounded-lg transition-colors"
+            style={{ backgroundColor: '#5b5bd6' }}
+            onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#4f4fbf')}
+            onMouseLeave={e => (e.currentTarget.style.backgroundColor = '#5b5bd6')}
           >
             Try it free →
           </button>
           <button
             onClick={() => navigate('/dashboard')}
-            className="bg-white border border-gray-200 text-gray-700 font-semibold px-6 py-3 rounded-xl hover:bg-gray-50 transition-colors"
+            className="bg-white border border-gray-200 text-gray-700 font-semibold px-6 py-3 rounded-lg hover:bg-gray-50 transition-colors"
           >
             Sign in
           </button>
@@ -50,16 +65,11 @@ export default function LandingPage() {
       {/* Features row */}
       <section className="max-w-3xl mx-auto px-6 pb-16">
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          {[
-            { icon: '📄', title: 'Resume tailoring', desc: 'AI rewrites your bullets to match each job description' },
-            { icon: '✉️', title: 'Cover letters', desc: 'Generates a personalized cover letter in one click' },
-            { icon: '⚡', title: 'ATS checker', desc: 'Instantly flags formatting issues that cause auto-rejection' },
-            { icon: '📋', title: 'Application tracking', desc: 'Track every job you\'ve applied to in one place' },
-          ].map(f => (
-            <div key={f.title} className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
-              <div className="text-2xl mb-2">{f.icon}</div>
-              <p className="font-semibold text-gray-900 text-sm mb-1">{f.title}</p>
-              <p className="text-gray-500 text-xs leading-relaxed">{f.desc}</p>
+          {FEATURES.map(({ icon: Icon, title, desc }) => (
+            <div key={title} className="bg-white rounded-xl p-5" style={cardShadow}>
+              <Icon size={20} strokeWidth={1.5} className="text-gray-400 mb-3" />
+              <p className="font-semibold text-gray-900 text-sm mb-1">{title}</p>
+              <p className="text-gray-500 text-xs leading-relaxed">{desc}</p>
             </div>
           ))}
         </div>
@@ -69,11 +79,14 @@ export default function LandingPage() {
       <section id="ats" className="max-w-3xl mx-auto px-6 pb-24">
         <button
           onClick={() => document.getElementById('ats')?.scrollIntoView({ behavior: 'smooth' })}
-          className="w-full text-center text-sm font-semibold text-violet-600 hover:text-violet-700 bg-violet-50 hover:bg-violet-100 border border-violet-200 rounded-xl py-3 mb-6 transition-colors"
+          className="w-full text-center text-sm font-semibold py-3 mb-6 rounded-xl transition-colors"
+          style={{ color: '#5b5bd6', backgroundColor: 'hsl(240 60% 96%)', border: '1px solid hsl(240 40% 88%)' }}
+          onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'hsl(240 60% 93%)')}
+          onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'hsl(240 60% 96%)')}
         >
           ⚡ Free: Check your ATS score in 10 seconds →
         </button>
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 sm:p-8">
+        <div className="bg-white rounded-xl p-6 sm:p-8" style={cardShadow}>
           <ATSChecker onFix={() => navigate('/dashboard')} />
         </div>
       </section>
