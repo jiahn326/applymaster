@@ -194,7 +194,7 @@ export default function ResumeChangesView({ tailored, structure }: Props) {
       </div>
 
       {acceptedDiffs.length === 0 && (
-        <p className="text-gray-400 text-sm text-center py-4">No changes — your resume already matches this JD well!</p>
+        <p className="text-gray-400 text-sm text-center py-4">No changes. Your resume already matches this job well.</p>
       )}
 
     </div>

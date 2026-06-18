@@ -67,7 +67,7 @@ export default function LoginPage() {
         )}
 
         <p className="text-gray-400 text-xs mt-6">
-          Your data is private — only you can see your applications.
+          Your data is private. Only you can see your applications.
         </p>
       </div>
     </div>

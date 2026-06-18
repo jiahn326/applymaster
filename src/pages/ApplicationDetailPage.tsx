@@ -281,7 +281,7 @@ export default function ApplicationDetailPage() {
                   <span className={`w-2.5 h-2.5 rounded-full ${v.dot}`} />
                   <span className={`font-bold ${v.text}`}>{v.label}</span>
                   <span className="text-gray-400 text-sm">· {app.fit_analysis.overallScore}/100</span>
-                  <span className={`text-sm ${v.text} hidden sm:block`}>— {app.fit_analysis.verdictReason}</span>
+                  <span className={`text-sm ${v.text} hidden sm:block`}>· {app.fit_analysis.verdictReason}</span>
                 </div>
                 <span className="text-gray-400 text-xs shrink-0">{fitExpanded ? '▴ hide' : '▾ details'}</span>
               </button>

@@ -90,7 +90,7 @@ function analyzeResume(text: string): ATSResult {
       severity: 'medium',
       title: 'Inconsistent date formats',
       detail: `Found ${detectedFormats.length} different date styles (${detectedFormats.map(f => f.name).join(', ')}). Inconsistency can confuse ATS date parsers.`,
-      fix: 'Pick one format and use it everywhere — "Jan 2022 – Mar 2024" is the safest.',
+      fix: 'Pick one format and use it everywhere. "Jan 2022 – Mar 2024" is the safest.',
     })
   } else {
     passed.push('Date format looks consistent')
@@ -101,7 +101,7 @@ function analyzeResume(text: string): ATSResult {
     warnings.push({
       severity: 'medium',
       title: 'Slash-stacked skills detected',
-      detail: `e.g. "Python/Java/TypeScript/React" — ATS may parse this as one token instead of four separate skills.`,
+      detail: `e.g. "Python/Java/TypeScript/React". ATS may parse this as one token, not four separate skills.`,
       fix: 'Use commas or list skills separately: Python, Java, TypeScript, React.',
     })
   } else {
@@ -241,7 +241,7 @@ export default function ATSChecker({ onFix }: { onFix?: () => void } = {}) {
         <p className="text-xs font-semibold text-violet-600 uppercase tracking-widest">ATS Format Checker</p>
         <h2 className="text-xl font-bold text-gray-900">Is your resume ATS-proof?</h2>
         <p className="text-sm text-gray-500">
-          Paste your resume below. We'll flag formatting issues that cause automatic rejection — no AI needed, instant results.
+          Paste your resume below. We'll flag formatting issues that cause automatic rejection. No AI needed, results are instant.
         </p>
       </div>
 
@@ -286,7 +286,7 @@ export default function ATSChecker({ onFix }: { onFix?: () => void } = {}) {
               <div>
                 <p className="text-sm font-semibold text-gray-700">
                   {result.warnings.length === 0
-                    ? 'No issues found — your resume looks ATS-ready.'
+                    ? 'No issues found. Your resume looks ATS-ready.'
                     : `${result.warnings.length} issue${result.warnings.length > 1 ? 's' : ''} found`}
                 </p>
                 <p className="text-xs text-gray-400 mt-0.5">
@@ -338,7 +338,7 @@ export default function ATSChecker({ onFix }: { onFix?: () => void } = {}) {
               onClick={onFix}
               className="w-full bg-gray-900 hover:bg-gray-700 text-white font-semibold py-3 rounded-xl transition-colors"
             >
-              Fix it — tailor your resume →
+              Fix it: tailor your resume →
             </button>
           )}
         </div>

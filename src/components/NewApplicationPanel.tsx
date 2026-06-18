@@ -222,7 +222,7 @@ export default function NewApplicationPanel({ onSaved, onClose }: Props) {
                 setTimeout(() => handlePaste(text), 50)
               }}
               disabled={step === 'analyzing'}
-              placeholder="Paste a LinkedIn URL, Indeed URL, or the full job description text..."
+              placeholder="Paste a job URL or the full job description text..."
               className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-700 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-900 resize-none h-32 disabled:bg-gray-50 disabled:text-gray-400"
             />
 
