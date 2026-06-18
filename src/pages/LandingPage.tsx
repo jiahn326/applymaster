@@ -37,6 +37,7 @@ export default function LandingPage() {
     document.getElementById('demo')?.scrollIntoView({ behavior: 'smooth' })
   }
 
+
   return (
     <div className="min-h-screen bg-[#F7F8FA]">
       {/* Nav */}
@@ -57,14 +58,12 @@ export default function LandingPage() {
 
       {/* Hero */}
       <section className="max-w-3xl mx-auto px-6 pt-20 pb-16 text-center">
-        <div className="inline-flex items-center gap-2 bg-violet-50 text-violet-700 text-xs font-semibold px-3 py-1.5 rounded-full mb-6">
-          ✨ AI-powered resume tailoring
-        </div>
         <h1 className="text-4xl sm:text-5xl font-bold text-gray-900 leading-tight mb-5">
-          Tailor your resume for<br />every job, in seconds
+          "100 applications. 0 callbacks."<br />
+          <span className="text-gray-500 font-normal text-3xl sm:text-4xl">Your experience isn't the problem.<br />Your resume is.</span>
         </h1>
         <p className="text-lg text-gray-500 mb-8 max-w-xl mx-auto">
-          Paste a job description. ApplyMaster rewrites your resume bullets to match it, generates a cover letter, and tracks every application.
+          Paste any job description. We'll rewrite your bullets to match, instantly.
         </p>
         <div className="flex items-center justify-center gap-3">
           <button
@@ -100,7 +99,13 @@ export default function LandingPage() {
       </section>
 
       {/* ATS Checker */}
-      <section className="max-w-3xl mx-auto px-6 pb-16">
+      <section id="ats" className="max-w-3xl mx-auto px-6 pb-16">
+        <button
+          onClick={() => document.getElementById('ats')?.scrollIntoView({ behavior: 'smooth' })}
+          className="w-full text-center text-sm font-semibold text-violet-600 hover:text-violet-700 bg-violet-50 hover:bg-violet-100 border border-violet-200 rounded-xl py-3 mb-6 transition-colors"
+        >
+          ⚡ Free: Check your ATS score in 10 seconds →
+        </button>
         <div className="bg-[#F7F8FA] rounded-2xl border border-gray-200 p-6 sm:p-8">
           <ATSChecker />
         </div>
