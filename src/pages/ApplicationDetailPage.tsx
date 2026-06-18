@@ -130,7 +130,7 @@ export default function ApplicationDetailPage() {
   async function handleDelete() {
     if (!confirm('Delete this application?')) return
     await supabase.from('applications').delete().eq('id', id)
-    navigate('/')
+    navigate('/dashboard')
   }
 
   async function handleReanalyze() {
@@ -211,7 +211,7 @@ export default function ApplicationDetailPage() {
       {/* Header */}
       <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
         <div className="max-w-6xl mx-auto px-6 h-14 flex items-center gap-4">
-          <button onClick={() => navigate('/')} className="text-gray-400 hover:text-gray-700 transition-colors text-lg">←</button>
+          <button onClick={() => navigate('/dashboard')} className="text-gray-400 hover:text-gray-700 transition-colors text-lg">←</button>
           {editingMeta ? (
             <div className="flex-1 flex items-center gap-2 min-w-0">
               <input value={editCompany} onChange={e => setEditCompany(e.target.value)}

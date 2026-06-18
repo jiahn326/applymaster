@@ -74,7 +74,7 @@ export default function UploadResumePage() {
 
       setVersions(prev => [inserted as ResumeVersion, ...prev])
       setStatus('done')
-      setTimeout(() => navigate('/'), 1200)
+      setTimeout(() => navigate('/dashboard'), 1200)
     } catch (err: any) {
       setError(err.message ?? 'Something went wrong.')
       setStatus('error')
@@ -114,7 +114,7 @@ export default function UploadResumePage() {
     <div className="min-h-screen bg-[#F7F8FA]">
       <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
         <div className="max-w-5xl mx-auto px-6 h-14 flex items-center gap-3">
-          <button onClick={() => navigate('/')} className="text-gray-400 hover:text-gray-700 transition-colors">
+          <button onClick={() => navigate('/dashboard')} className="text-gray-400 hover:text-gray-700 transition-colors">
             ←
           </button>
           <span className="text-base font-semibold text-gray-900">Upload Resume</span>
