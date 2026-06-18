@@ -55,6 +55,7 @@ interface Application {
   tailored_resume: TailoredResume | null
   fit_analysis: JobFitAnalysis | null
   cover_letter: string | null
+  cover_letter_submitted: boolean
   created_at: string
 }
 
@@ -76,8 +77,11 @@ export default function ApplicationDetailPage() {
     setTimeout(() => setToast(null), 4000)
   }
   const [tailoring, setTailoring] = useState(false)
+  const [reanalyzing, setReanalyzing] = useState(false)
   const [coverLetter, setCoverLetter] = useState<string | null>(null)
+  const [coverLetterSubmitted, setCoverLetterSubmitted] = useState(false)
   const [generatingCL, setGeneratingCL] = useState(false)
+  const [coverLetterError, setCoverLetterError] = useState<string | null>(null)
   const [copiedCL, setCopiedCL] = useState(false)
   const [fitExpanded, setFitExpanded] = useState(false)
   const [editingNotes, setEditingNotes] = useState(false)
@@ -96,6 +100,7 @@ export default function ApplicationDetailPage() {
       setStructure(resumes?.[0]?.content?.structure ?? null)
       setRawText(resumes?.[0]?.content?.raw_text ?? '')
       if (a?.cover_letter) setCoverLetter(a.cover_letter)
+      setCoverLetterSubmitted(a?.cover_letter_submitted ?? false)
       setLoading(false)
     }
     load()
@@ -128,6 +133,21 @@ export default function ApplicationDetailPage() {
     navigate('/')
   }
 
+  async function handleReanalyze() {
+    if (!app?.job_description || !rawText) return
+    setReanalyzing(true)
+    try {
+      const { api } = await import('../lib/api')
+      const result = await api.analyzeJobFit(rawText, app.job_description)
+      await supabase.from('applications').update({ fit_analysis: result }).eq('id', id)
+      setApp({ ...app, fit_analysis: result })
+    } catch (err: any) {
+      alert('Analysis failed: ' + (err.message ?? 'Unknown error'))
+    } finally {
+      setReanalyzing(false)
+    }
+  }
+
   async function handleTailor() {
     if (!app?.job_description || !rawText) return
     setTailoring(true)
@@ -146,14 +166,29 @@ export default function ApplicationDetailPage() {
   async function handleGenerateCoverLetter() {
     if (!app?.job_description) return
     setGeneratingCL(true)
+    setCoverLetterError(null)
     try {
       const result = await generateCoverLetter(app.company, app.role, app.job_description, structure?.header)
       setCoverLetter(result)
       await supabase.from('applications').update({ cover_letter: result }).eq('id', app.id)
     } catch (err: any) {
-      alert('Cover letter generation failed: ' + (err.message ?? 'Unknown error'))
+      setCoverLetterError(err.message ?? 'Unknown error')
     } finally {
       setGeneratingCL(false)
+    }
+  }
+
+  async function handleToggleCoverLetterSubmitted() {
+    if (!app) return
+    const next = !coverLetterSubmitted
+    setCoverLetterSubmitted(next)
+    await supabase.from('applications').update({ cover_letter_submitted: next }).eq('id', app.id)
+  }
+
+  function handleTabClick(t: 'resume' | 'cover') {
+    setActiveTab(t)
+    if (t === 'cover' && !coverLetter && !generatingCL && app?.job_description) {
+      handleGenerateCoverLetter()
     }
   }
 
@@ -229,8 +264,12 @@ export default function ApplicationDetailPage() {
 
         {/* Fit Analysis */}
         {!app.fit_analysis && app.job_description && (
-          <div className="bg-gray-50 border border-gray-200 rounded-2xl px-5 py-4 flex items-center justify-between">
-            <p className="text-sm text-gray-500">No fit analysis — this application was saved before analysis was available.</p>
+          <div className="bg-gray-50 border border-gray-200 rounded-2xl px-5 py-4 flex items-center justify-between gap-4">
+            <p className="text-sm text-gray-500">No fit analysis yet.</p>
+            <button onClick={handleReanalyze} disabled={reanalyzing || !rawText}
+              className="shrink-0 text-xs font-semibold bg-gray-900 hover:bg-gray-700 disabled:opacity-40 text-white px-3 py-1.5 rounded-lg transition-colors">
+              {reanalyzing ? '✨ Analyzing...' : '✨ Analyze Fit'}
+            </button>
           </div>
         )}
         {app.fit_analysis && (() => {
@@ -297,7 +336,7 @@ export default function ApplicationDetailPage() {
           {/* Tab bar */}
           <div className="flex border-b border-gray-100">
             {(['resume', 'cover'] as const).map(t => (
-              <button key={t} onClick={() => setActiveTab(t)}
+              <button key={t} onClick={() => handleTabClick(t)}
                 className={`flex-1 py-3 text-sm font-semibold transition-colors ${
                   activeTab === t ? 'text-gray-900 border-b-2 border-gray-900' : 'text-gray-400 hover:text-gray-600'
                 }`}>
@@ -347,7 +386,15 @@ export default function ApplicationDetailPage() {
                 {coverLetter ? (
                   <>
                     <div className="flex items-center justify-between">
-                      <p className="text-xs text-gray-400">Copies from date line to before Sincerely</p>
+                      <label className="flex items-center gap-2.5 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={coverLetterSubmitted}
+                          onChange={handleToggleCoverLetterSubmitted}
+                          className="w-4 h-4 rounded accent-violet-600 cursor-pointer"
+                        />
+                        <span className="text-sm text-gray-600">I submitted this cover letter</span>
+                      </label>
                       <button onClick={() => {
                         const lines = coverLetter.split('\n')
                         const dateIdx = lines.findIndex(l => /^(January|February|March|April|May|June|July|August|September|October|November|December)/i.test(l.trim()))
@@ -372,10 +419,23 @@ export default function ApplicationDetailPage() {
                       {generatingCL ? '✨ Regenerating...' : '↺ Regenerate'}
                     </button>
                   </>
+                ) : generatingCL ? (
+                  <div className="flex flex-col items-center justify-center py-10 gap-3">
+                    <div className="w-6 h-6 border-2 border-gray-300 border-t-gray-900 rounded-full animate-spin" />
+                    <p className="text-sm text-gray-400">Generating cover letter...</p>
+                  </div>
+                ) : coverLetterError ? (
+                  <div className="flex flex-col items-center justify-center py-10 gap-3">
+                    <p className="text-sm text-red-500">Generation failed: {coverLetterError}</p>
+                    <button onClick={handleGenerateCoverLetter} disabled={!app.job_description}
+                      className="bg-gray-900 hover:bg-gray-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-semibold px-5 py-2.5 rounded-xl transition-colors text-sm">
+                      Try Again
+                    </button>
+                  </div>
                 ) : (
-                  <button onClick={handleGenerateCoverLetter} disabled={generatingCL || !app.job_description}
+                  <button onClick={handleGenerateCoverLetter} disabled={!app.job_description}
                     className="w-full bg-gray-900 hover:bg-gray-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-semibold py-3 rounded-xl transition-colors">
-                    {generatingCL ? '✨ Generating cover letter...' : '✨ Generate Cover Letter'}
+                    ✨ Generate Cover Letter
                   </button>
                 )}
                 {!app.job_description && <p className="text-gray-400 text-sm text-center">Add a job description to generate a cover letter.</p>}
@@ -419,7 +479,7 @@ export default function ApplicationDetailPage() {
               onClick={() => { setActiveTab('cover'); setToast(null) }}
               className="text-emerald-400 hover:text-emerald-300 font-semibold transition-colors"
             >
-              만들기 →
+              Generate →
             </button>
             <button onClick={() => setToast(null)} className="text-gray-400 hover:text-white transition-colors ml-1">✕</button>
           </div>

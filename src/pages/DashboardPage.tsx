@@ -17,6 +17,7 @@ interface Application {
   notes: string | null
   applied_through: string | null
   cover_letter: string | null
+  cover_letter_submitted: boolean
   fit_analysis: { verdict: 'Apply' | 'Maybe' | 'Skip'; overallScore: number } | null
 }
 
@@ -34,6 +35,26 @@ const FILTER_TABS: { value: FilterTab; label: string }[] = [
   { value: 'offer',        label: 'Offers' },
   { value: 'rejected',     label: 'Rejected' },
 ]
+
+function StatusSelect({ app, onChange }: { app: Application; onChange: (e: React.ChangeEvent<HTMLSelectElement>, id: string) => void }) {
+  const cfg = STATUS_CONFIG[app.status]
+  return (
+    <div className="relative inline-flex items-center">
+      <select
+        value={app.status}
+        onChange={e => onChange(e, app.id)}
+        className={`appearance-none text-xs font-semibold pl-2.5 pr-6 py-1 rounded-full border-0 cursor-pointer focus:outline-none ${cfg.color}`}
+      >
+        {(Object.keys(STATUS_CONFIG) as Status[]).map(s => (
+          <option key={s} value={s}>{STATUS_CONFIG[s].label}</option>
+        ))}
+      </select>
+      <svg className="pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 opacity-70" width="10" height="10" viewBox="0 0 10 10" fill="currentColor">
+        <path d="M2 3.5l3 3 3-3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+      </svg>
+    </div>
+  )
+}
 
 export default function DashboardPage() {
   const [hasResume, setHasResume] = useState<boolean | null>(null)
@@ -145,19 +166,21 @@ export default function DashboardPage() {
 
         {/* Toolbar */}
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 mb-4">
-          <button
-            onClick={() => setShowNewPanel(true)}
-            disabled={!hasResume}
-            className="flex items-center justify-center gap-1.5 bg-gray-900 hover:bg-gray-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors shadow-sm shrink-0"
-          >
-            <span className="text-base leading-none">+</span> New
-          </button>
-          <input
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            placeholder="Search by company or role..."
-            className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 bg-white"
-          />
+          <div className="flex gap-2 sm:contents">
+            <button
+              onClick={() => setShowNewPanel(true)}
+              disabled={!hasResume}
+              className="flex items-center justify-center gap-1.5 bg-gray-900 hover:bg-gray-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors shadow-sm shrink-0"
+            >
+              <span className="text-base leading-none">+</span> New
+            </button>
+            <input
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Search by company or role..."
+              className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 bg-white"
+            />
+          </div>
           <div className="flex gap-1 bg-gray-100 p-1 rounded-lg overflow-x-auto shrink-0">
             {FILTER_TABS.map(tab => (
               <button key={tab.value} onClick={() => setFilter(tab.value)}
@@ -210,8 +233,8 @@ export default function DashboardPage() {
                 </span>
                 <span className="font-semibold text-gray-900 text-sm truncate">{app.company}</span>
                 <span className="text-sm text-gray-600 truncate">{app.role}</span>
-                <span className={`text-sm font-medium text-center block ${app.cover_letter ? 'text-violet-600' : 'text-gray-300'}`}>
-                  {app.cover_letter ? '✓' : '—'}
+                <span className={`text-sm font-medium text-center block ${app.cover_letter_submitted ? 'text-violet-600' : app.cover_letter ? 'text-gray-400' : 'text-gray-300'}`}>
+                  {app.cover_letter_submitted ? '✓' : app.cover_letter ? '~' : '—'}
                 </span>
                 {/* Fit score */}
                 <span className={`text-xs font-semibold text-center block ${
@@ -223,15 +246,7 @@ export default function DashboardPage() {
                 </span>
                 {/* Inline status dropdown */}
                 <div onClick={e => e.stopPropagation()}>
-                  <select
-                    value={app.status}
-                    onChange={e => handleStatusChange(e, app.id)}
-                    className={`text-xs font-semibold px-2.5 py-1 rounded-full border-0 cursor-pointer focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-gray-400 ${STATUS_CONFIG[app.status].color}`}
-                  >
-                    {(Object.keys(STATUS_CONFIG) as Status[]).map(s => (
-                      <option key={s} value={s}>{STATUS_CONFIG[s].label}</option>
-                    ))}
-                  </select>
+                  <StatusSelect app={app} onChange={handleStatusChange} />
                 </div>
                 <button onClick={(e) => handleDelete(e, app.id)} className="text-gray-300 hover:text-red-400 transition-colors">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -255,15 +270,7 @@ export default function DashboardPage() {
                     <p className="text-gray-500 text-xs truncate mt-0.5">{app.role}</p>
                   </div>
                   <div className="flex items-center gap-2 shrink-0" onClick={e => e.stopPropagation()}>
-                    <select
-                      value={app.status}
-                      onChange={e => handleStatusChange(e, app.id)}
-                      className={`text-xs font-semibold px-2.5 py-1 rounded-full border-0 cursor-pointer focus:outline-none ${STATUS_CONFIG[app.status].color}`}
-                    >
-                      {(Object.keys(STATUS_CONFIG) as Status[]).map(s => (
-                        <option key={s} value={s}>{STATUS_CONFIG[s].label}</option>
-                      ))}
-                    </select>
+                    <StatusSelect app={app} onChange={handleStatusChange} />
                     <button onClick={(e) => handleDelete(e, app.id)}
                       className="text-gray-300 hover:text-red-400 transition-colors">
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -276,7 +283,18 @@ export default function DashboardPage() {
                   <span className="text-xs text-gray-400">
                     {new Date(app.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                   </span>
-                  {app.cover_letter && <span className="text-xs text-violet-600 font-medium">✓ Cover letter</span>}
+                  {app.fit_analysis && (
+                    <span className={`text-xs font-semibold ${
+                      app.fit_analysis.verdict === 'Apply' ? 'text-emerald-600' :
+                      app.fit_analysis.verdict === 'Maybe' ? 'text-amber-500' : 'text-red-400'
+                    }`}>Fit {app.fit_analysis.overallScore}</span>
+                  )}
+                  {app.cover_letter_submitted
+                    ? <span className="text-xs text-violet-600 font-medium">✓ Cover letter</span>
+                    : app.cover_letter
+                    ? <span className="text-xs text-gray-400 font-medium">~ Cover letter</span>
+                    : null
+                  }
                 </div>
               </div>
             ))}
