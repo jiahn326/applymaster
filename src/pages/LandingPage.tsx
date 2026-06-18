@@ -29,7 +29,7 @@ export default function LandingPage() {
           <span className="text-gray-500 font-normal text-3xl sm:text-4xl">Your experience isn't the problem.<br />Your resume is.</span>
         </h1>
         <p className="text-lg text-gray-500 mb-8 max-w-xl mx-auto">
-          Paste any job description. We'll rewrite your bullets to match, instantly.
+          Paste a job description. Your bullets rewrite themselves.
         </p>
         <div className="flex items-center justify-center gap-3">
           <button
