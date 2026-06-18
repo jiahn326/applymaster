@@ -221,7 +221,7 @@ function WarningCard({ w }: { w: Warning }) {
   )
 }
 
-export default function ATSChecker() {
+export default function ATSChecker({ onFix }: { onFix?: () => void } = {}) {
   const [text, setText] = useState('')
   const [result, setResult] = useState<ATSResult | null>(null)
 
@@ -331,6 +331,15 @@ export default function ATSChecker() {
                 ))}
               </ul>
             </div>
+          )}
+
+          {onFix && (
+            <button
+              onClick={onFix}
+              className="w-full bg-gray-900 hover:bg-gray-700 text-white font-semibold py-3 rounded-xl transition-colors"
+            >
+              Fix it — tailor your resume →
+            </button>
           )}
         </div>
       )}

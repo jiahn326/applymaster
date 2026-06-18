@@ -107,7 +107,7 @@ export default function LandingPage() {
           ⚡ Free: Check your ATS score in 10 seconds →
         </button>
         <div className="bg-[#F7F8FA] rounded-2xl border border-gray-200 p-6 sm:p-8">
-          <ATSChecker />
+          <ATSChecker onFix={scrollToDemo} />
         </div>
       </section>
 
