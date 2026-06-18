@@ -83,10 +83,11 @@ export default function LandingPage() {
 
       {/* Features row */}
       <section className="max-w-3xl mx-auto px-6 pb-16">
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           {[
             { icon: '📄', title: 'Resume tailoring', desc: 'AI rewrites your bullets to match each job description' },
             { icon: '✉️', title: 'Cover letters', desc: 'Generates a personalized cover letter in one click' },
+            { icon: '⚡', title: 'ATS checker', desc: 'Instantly flags formatting issues that cause auto-rejection' },
             { icon: '📋', title: 'Application tracking', desc: 'Track every job you\'ve applied to in one place' },
           ].map(f => (
             <div key={f.title} className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
