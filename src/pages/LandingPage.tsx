@@ -60,7 +60,7 @@ export default function LandingPage() {
           ✨ AI-powered resume tailoring
         </div>
         <h1 className="text-4xl sm:text-5xl font-bold text-gray-900 leading-tight mb-5">
-          Tailor your resume for<br />every job — in seconds
+          Tailor your resume for<br />every job, in seconds
         </h1>
         <p className="text-lg text-gray-500 mb-8 max-w-xl mx-auto">
           Paste a job description. ApplyMaster rewrites your resume bullets to match it, generates a cover letter, and tracks every application.
@@ -101,7 +101,7 @@ export default function LandingPage() {
       {/* Demo */}
       <section id="demo" className="max-w-3xl mx-auto px-6 pb-24">
         <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 sm:p-8">
-          <h2 className="text-xl font-bold text-gray-900 mb-1">Try it — no account needed</h2>
+          <h2 className="text-xl font-bold text-gray-900 mb-1">Try it, no account needed</h2>
           <p className="text-sm text-gray-500 mb-6">Paste your resume and a job description to see AI tailoring in action.</p>
 
           {demoState !== 'result' && (
@@ -173,7 +173,7 @@ export default function LandingPage() {
               {/* CTA */}
               <div className="bg-violet-50 rounded-xl p-5 text-center space-y-3 border border-violet-100">
                 <p className="font-semibold text-gray-900">Sign up to save this tailored resume</p>
-                <p className="text-sm text-gray-500">Free account — track applications, generate cover letters, and tailor resumes for every job.</p>
+                <p className="text-sm text-gray-500">Free account. Track applications, generate cover letters, and tailor resumes for every job.</p>
                 <button
                   onClick={() => navigate('/dashboard')}
                   className="bg-gray-900 hover:bg-gray-700 text-white font-semibold px-6 py-2.5 rounded-xl transition-colors text-sm"
