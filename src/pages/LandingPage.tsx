@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../lib/api'
+import ATSChecker from '../components/ATSChecker'
 
 type DemoState = 'idle' | 'loading' | 'result' | 'error'
 
@@ -95,6 +96,13 @@ export default function LandingPage() {
               <p className="text-gray-500 text-xs leading-relaxed">{f.desc}</p>
             </div>
           ))}
+        </div>
+      </section>
+
+      {/* ATS Checker */}
+      <section className="max-w-3xl mx-auto px-6 pb-16">
+        <div className="bg-[#F7F8FA] rounded-2xl border border-gray-200 p-6 sm:p-8">
+          <ATSChecker />
         </div>
       </section>
 
