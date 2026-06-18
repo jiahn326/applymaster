@@ -67,6 +67,12 @@ export default function NewApplicationPanel({ onSaved, onClose }: Props) {
       const isUrl = /^https?:\/\//i.test(trimmed)
       if (isUrl) setJobUrl(trimmed)
 
+      if (isUrl && /linkedin\.com/i.test(trimmed)) {
+        setStep('paste')
+        setError('LinkedIn blocks URL scraping. Please paste the job description text directly instead.')
+        return
+      }
+
       // Fetch URL content and resume in parallel
       const [content, resumeData] = await Promise.race([
         Promise.all([
