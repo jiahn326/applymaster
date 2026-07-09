@@ -10,9 +10,12 @@ Deno.serve(async (req) => {
     return new Response('ok', { headers: corsHeaders })
   }
 
-  // Verify request includes a Supabase JWT (anon or user token)
+  // Auth: allow automation secret OR valid Supabase JWT/anon token
   const authHeader = req.headers.get('Authorization') || req.headers.get('apikey') || ''
-  if (!authHeader.startsWith('Bearer ') && !authHeader.startsWith('eyJ')) {
+  const automationSecret = Deno.env.get('AUTOMATION_SECRET')
+  const isAutomation = automationSecret && authHeader === `Bearer ${automationSecret}`
+  const isValidToken = authHeader.startsWith('Bearer ') || authHeader.startsWith('eyJ')
+  if (!isAutomation && !isValidToken) {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), {
       status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
