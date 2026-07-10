@@ -172,113 +172,133 @@ export function exportPdf(
   fileName: string
 ): void {
   const s = applyTailoring(structure, tailored)
-  const doc = new jsPDF({ unit: 'pt', format: 'letter' })
   const ml = 50, mr = 50
-  const pageWidth = doc.internal.pageSize.getWidth()
-  const pageHeight = doc.internal.pageSize.getHeight()
-  const contentWidth = pageWidth - ml - mr
-  let y = 50
+  const pageWidth = 612  // US Letter width in pt
+  const letterHeight = 792 // US Letter height in pt
 
-  function checkBreak(needed: number) {
-    if (y + needed > pageHeight - 40) { doc.addPage(); y = 50 }
-  }
+  // ls = line scale. All vertical spacing is multiplied by ls so content
+  // fills the letter page regardless of how much text there is.
+  function renderTo(doc: jsPDF, ls = 1): number {
+    const contentWidth = pageWidth - ml - mr
+    let y = 50
 
-  function sectionHeader(title: string) {
-    checkBreak(24)
-    y += 8
-    doc.setFont('helvetica', 'bold')
-    doc.setFontSize(11)
-    doc.text(title, ml, y)
-    y += 4
-    doc.setLineWidth(0.5)
-    doc.line(ml, y, pageWidth - mr, y)
-    y += 10
-  }
-
-  function twoCol(left: string, right: string, bold = false, italic = false) {
-    checkBreak(16)
-    doc.setFont('helvetica', bold ? 'bold' : italic ? 'italic' : 'normal')
-    doc.setFontSize(10)
-    doc.text(left, ml, y)
-    doc.text(right, pageWidth - mr, y, { align: 'right' })
-    y += 14
-  }
-
-  function boldLabel(label: string, value: string) {
-    checkBreak(14)
-    doc.setFont('helvetica', 'bold')
-    doc.setFontSize(10)
-    const labelWidth = doc.getTextWidth(label)
-    doc.text(label, ml, y)
-    doc.setFont('helvetica', 'normal')
-    const wrapped = doc.splitTextToSize(value, contentWidth - labelWidth)
-    doc.text(wrapped[0], ml + labelWidth, y)
-    if (wrapped.length > 1) {
-      y += 13
-      doc.text(wrapped.slice(1).join(' '), ml + labelWidth, y)
+    function checkBreak(needed: number) {
+      if (y + needed * ls > doc.internal.pageSize.getHeight() - 40) { doc.addPage(); y = 50 }
     }
-    y += 14
-  }
 
-  function bulletLine(text: string) {
-    doc.setFont('helvetica', 'normal')
-    doc.setFontSize(10)
-    const wrapped = doc.splitTextToSize(`•  ${text}`, contentWidth - 15)
-    checkBreak(wrapped.length * 13)
-    doc.text(wrapped, ml + 10, y)
-    y += wrapped.length * 13
-  }
+    function sectionHeader(title: string) {
+      checkBreak(22)
+      y += 8 * ls
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(11.5)
+      doc.text(title, ml, y)
+      y += 4
+      doc.setLineWidth(0.5)
+      doc.line(ml, y, pageWidth - mr, y)
+      y += 10 * ls
+    }
 
-  // Header
-  doc.setFont('helvetica', 'bold')
-  doc.setFontSize(16)
-  doc.text(s.header.name, pageWidth / 2, y, { align: 'center' })
-  y += 18
-  doc.setFont('helvetica', 'normal')
-  doc.setFontSize(10)
-  doc.text(s.header.contact, pageWidth / 2, y, { align: 'center' })
-  y += 20
+    function twoCol(left: string, right: string, bold = false, italic = false) {
+      checkBreak(14)
+      doc.setFont('helvetica', bold ? 'bold' : italic ? 'italic' : 'normal')
+      doc.setFontSize(11)
+      doc.text(left, ml, y)
+      doc.text(right, pageWidth - mr, y, { align: 'right' })
+      y += 14 * ls
+    }
 
-  // Education
-  sectionHeader('EDUCATION')
-  for (const edu of s.education) {
-    twoCol(edu.school, edu.location, true)
-    twoCol(edu.degree, edu.dates, false, true)
-    if (edu.awards) boldLabel('Awards: ', edu.awards)
-  }
-
-  // Skills
-  sectionHeader('SKILLS')
-  boldLabel('Languages: ', s.skills.languages.join(', '))
-  boldLabel('Tools: ', s.skills.tools.join(', '))
-
-  // Experience
-  sectionHeader('EXPERIENCE')
-  for (const exp of s.experience) {
-    twoCol(exp.company, exp.location, true)
-    twoCol(exp.title, exp.dates, false, true)
-    for (const b of exp.bullets) bulletLine(b)
-    y += 4
-  }
-
-  // Projects
-  sectionHeader('PERSONAL PROJECTS')
-  for (const proj of s.projects) {
-    checkBreak(14)
-    doc.setFont('helvetica', 'bold')
-    doc.setFontSize(10)
-    doc.text(proj.name, ml, y)
-    if (proj.tech) {
-      const nameWidth = doc.getTextWidth(proj.name)
+    function boldLabel(label: string, value: string) {
+      checkBreak(13)
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(11)
+      const labelWidth = doc.getTextWidth(label)
+      doc.text(label, ml, y)
       doc.setFont('helvetica', 'normal')
-      doc.text(` (${proj.tech})`, ml + nameWidth, y)
+      const wrapped = doc.splitTextToSize(value, contentWidth - labelWidth)
+      doc.text(wrapped[0], ml + labelWidth, y)
+      if (wrapped.length > 1) {
+        y += 13 * ls
+        doc.text(wrapped.slice(1).join(' '), ml + labelWidth, y)
+      }
+      y += 14 * ls
     }
-    y += 14
-    for (const b of proj.bullets) bulletLine(b)
-    y += 4
+
+    function bulletLine(text: string) {
+      doc.setFont('helvetica', 'normal')
+      doc.setFontSize(11)
+      const wrapped = doc.splitTextToSize(`-  ${text}`, contentWidth - 15)
+      checkBreak(13 * wrapped.length)
+      for (let i = 0; i < wrapped.length; i++) {
+        doc.text(wrapped[i], ml + 10, y + i * 13 * ls)
+      }
+      y += wrapped.length * 13 * ls
+    }
+
+    // Header
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(16.5)
+    doc.text(s.header.name, pageWidth / 2, y, { align: 'center' })
+    y += 18 * ls
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(11)
+    doc.text(s.header.contact, pageWidth / 2, y, { align: 'center' })
+    y += 20 * ls
+
+    // Education
+    sectionHeader('EDUCATION')
+    for (const edu of s.education) {
+      twoCol(edu.school, edu.location, true)
+      twoCol(edu.degree, edu.dates, false, true)
+      if (edu.awards) boldLabel('Awards: ', edu.awards)
+    }
+    y += 4 * ls
+
+    // Skills
+    sectionHeader('SKILLS')
+    boldLabel('Languages: ', s.skills.languages.join(', '))
+    boldLabel('Tools: ', s.skills.tools.join(', '))
+    y += 4 * ls
+
+    // Experience
+    sectionHeader('EXPERIENCE')
+    for (const exp of s.experience) {
+      twoCol(exp.company, exp.location, true)
+      twoCol(exp.title, exp.dates, false, true)
+      for (const b of exp.bullets) bulletLine(b)
+      y += 6 * ls
+    }
+
+    // Projects
+    sectionHeader('PERSONAL PROJECTS')
+    for (const proj of s.projects) {
+      checkBreak(14)
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(11)
+      doc.text(proj.name, ml, y)
+      if (proj.tech) {
+        const nameWidth = doc.getTextWidth(proj.name)
+        doc.setFont('helvetica', 'normal')
+        doc.text(` (${proj.tech})`, ml + nameWidth, y)
+      }
+      y += 14 * ls
+      for (const b of proj.bullets) bulletLine(b)
+      y += 6 * ls
+    }
+
+    return y
   }
 
-  doc.save(`${fileName}.pdf`)
+  // Pass 1: measure with no scaling on a tall virtual page
+  const measureDoc = new jsPDF({ unit: 'pt', format: [pageWidth, 10000] })
+  const finalY = renderTo(measureDoc, 1)
+
+  // Scale all spacing so content fills the letter page (cap at 1.4×)
+  const ls = Math.min((letterHeight - 100) / (finalY - 50), 1.4)
+
+  // Pass 2: render on letter page with scaled spacing
+  const realDoc = new jsPDF({ unit: 'pt', format: [pageWidth, letterHeight] })
+  renderTo(realDoc, ls)
+  realDoc.save(`${fileName}.pdf`)
 }
 
 // ─── Google Docs Export ─────────────────────────────────────────────────────

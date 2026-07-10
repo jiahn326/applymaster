@@ -48,6 +48,7 @@ export default function NewApplicationPanel({ onSaved, onClose }: Props) {
   const [saving, setSaving] = useState(false)
   const [tailoring, setTailoring] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [duplicate, setDuplicate] = useState<{ id: string; company: string; role: string; created_at: string; status: string } | null>(null)
   const pasteRef = useRef<HTMLTextAreaElement>(null)
 
   useEffect(() => {
@@ -101,6 +102,27 @@ export default function NewApplicationPanel({ onSaved, onClose }: Props) {
       if (info.role) setRole(info.role)
       if (info.jobDescription) setJobDescription(info.jobDescription)
       setAnalysis(fit)
+
+      // Check for duplicate applications in parallel
+      const dupeQueries: Promise<any>[] = []
+      if (isUrl) {
+        dupeQueries.push(
+          supabase.from('applications').select('id, company, role, created_at, status')
+            .eq('job_url', trimmed).limit(1)
+        )
+      }
+      if (info.company && info.role) {
+        dupeQueries.push(
+          supabase.from('applications').select('id, company, role, created_at, status')
+            .ilike('company', info.company).ilike('role', info.role).limit(1)
+        )
+      }
+      if (dupeQueries.length > 0) {
+        const dupeResults = await Promise.all(dupeQueries)
+        const match = dupeResults.find(r => r.data && r.data.length > 0)
+        setDuplicate(match?.data?.[0] ?? null)
+      }
+
       setStep('analysis')
     } catch (err: any) {
       setStep('paste')
@@ -248,6 +270,19 @@ export default function NewApplicationPanel({ onSaved, onClose }: Props) {
         {/* ── STEP: ANALYSIS ── */}
         {step === 'analysis' && analysis && v && (
           <div className="px-6 py-5 space-y-4">
+            {/* Duplicate warning */}
+            {duplicate && (
+              <div className="flex items-start gap-2.5 bg-amber-50 border border-amber-200 rounded-xl p-3.5">
+                <span className="text-amber-500 text-sm mt-px">⚠</span>
+                <div>
+                  <p className="text-xs font-semibold text-amber-800">Looks like you already applied to this job</p>
+                  <p className="text-xs text-amber-700 mt-0.5">
+                    {duplicate.role} at {duplicate.company} · {new Date(duplicate.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} · {duplicate.status}
+                  </p>
+                </div>
+              </div>
+            )}
+
             {/* Extracted info */}
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center shrink-0">
@@ -358,7 +393,7 @@ export default function NewApplicationPanel({ onSaved, onClose }: Props) {
             {saving ? 'Saving...' : tailoring ? '✨ Tailoring resume...' : analysis?.verdict === 'Skip' ? 'Apply anyway →' : "Yes, I'll apply! →"}
           </button>
           <button
-            onClick={() => { setPasteText(''); setStep('paste') }}
+            onClick={() => { setPasteText(''); setDuplicate(null); setStep('paste') }}
             className="w-full text-gray-500 hover:text-gray-800 font-medium py-2 rounded-xl transition-colors text-sm"
           >
             Try a different job
