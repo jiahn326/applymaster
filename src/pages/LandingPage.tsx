@@ -41,7 +41,7 @@ export default function LandingPage() {
           <span className="text-gray-500 font-normal text-3xl sm:text-4xl">Your experience isn't the problem.<br />Your resume is.</span>
         </h1>
         <p className="text-lg text-gray-500 mb-8 max-w-xl mx-auto">
-          Paste a job description. Your bullets rewrite themselves.
+          Find out why in 10 seconds. Paste your resume and get an ATS score — free, no account needed.
         </p>
         <div className="flex items-center justify-center gap-3">
           <button
@@ -51,7 +51,7 @@ export default function LandingPage() {
             onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#4f4fbf')}
             onMouseLeave={e => (e.currentTarget.style.backgroundColor = '#5b5bd6')}
           >
-            Try it free →
+            Check my resume →
           </button>
           <button
             onClick={() => navigate('/dashboard')}
