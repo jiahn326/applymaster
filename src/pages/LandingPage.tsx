@@ -41,7 +41,7 @@ export default function LandingPage() {
           <span className="text-gray-500 font-normal text-3xl sm:text-4xl">Your experience isn't the problem.<br />Your resume is.</span>
         </h1>
         <p className="text-lg text-gray-500 mb-8 max-w-xl mx-auto">
-          Find out why in 10 seconds. Paste your resume and get an ATS score — free, no account needed.
+          Find out why in 10 seconds. Paste your resume and get an ATS score, free, no account needed.
         </p>
         <div className="flex items-center justify-center gap-3">
           <button
@@ -77,15 +77,6 @@ export default function LandingPage() {
 
       {/* ATS Checker */}
       <section id="ats" className="max-w-3xl mx-auto px-6 pb-24">
-        <button
-          onClick={() => document.getElementById('ats')?.scrollIntoView({ behavior: 'smooth' })}
-          className="w-full text-center text-sm font-semibold py-3 mb-6 rounded-xl transition-colors"
-          style={{ color: '#5b5bd6', backgroundColor: 'hsl(240 60% 96%)', border: '1px solid hsl(240 40% 88%)' }}
-          onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'hsl(240 60% 93%)')}
-          onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'hsl(240 60% 96%)')}
-        >
-          ⚡ Free: Check your ATS score in 10 seconds →
-        </button>
         <div className="bg-white rounded-xl p-6 sm:p-8" style={cardShadow}>
           <ATSChecker onFix={() => navigate('/dashboard')} />
         </div>
