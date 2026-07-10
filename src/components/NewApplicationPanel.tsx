@@ -104,7 +104,7 @@ export default function NewApplicationPanel({ onSaved, onClose }: Props) {
       setAnalysis(fit)
 
       // Check for duplicate applications in parallel
-      const dupeQueries: Promise<any>[] = []
+      const dupeQueries = []
       if (isUrl) {
         dupeQueries.push(
           supabase.from('applications').select('id, company, role, created_at, status')
