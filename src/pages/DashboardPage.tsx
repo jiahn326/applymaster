@@ -74,9 +74,13 @@ export default function DashboardPage() {
           .select('*')
           .order('created_at', { ascending: false }),
       ])
-      setHasResume((resumes?.length ?? 0) > 0)
+      const hasAnyResume = (resumes?.length ?? 0) > 0
+      setHasResume(hasAnyResume)
       setApplications((apps as Application[]) ?? [])
       setLoading(false)
+      if (!hasAnyResume && (apps?.length ?? 0) === 0) {
+        navigate('/resume/upload')
+      }
     }
     load()
   }, [])
@@ -188,13 +192,21 @@ export default function DashboardPage() {
               placeholder="Search by company or role..."
               className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 bg-white"
             />
-            <button
-              onClick={() => setShowNewPanel(true)}
-              disabled={!hasResume}
-              className="flex items-center justify-center gap-1.5 bg-gray-900 hover:bg-gray-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors shadow-sm shrink-0"
-            >
-              <span className="text-base leading-none">+</span> New
-            </button>
+            <div className="relative group shrink-0">
+              <button
+                onClick={() => setShowNewPanel(true)}
+                disabled={!hasResume}
+                className="flex items-center justify-center gap-1.5 bg-gray-900 hover:bg-gray-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors shadow-sm"
+              >
+                <span className="text-base leading-none">+</span> New
+              </button>
+              {!hasResume && (
+                <div className="absolute bottom-full right-0 mb-2 px-2.5 py-1.5 bg-gray-800 text-white text-xs rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                  Upload your resume first
+                  <div className="absolute top-full right-3 border-4 border-transparent border-t-gray-800" />
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
