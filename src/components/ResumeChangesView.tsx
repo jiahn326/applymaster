@@ -48,7 +48,7 @@ function CopyButton({ text, copyKey, copiedKey, onCopy }: { text: string; copyKe
     <button
       onClick={() => onCopy(text, copyKey)}
       className="opacity-0 group-hover:opacity-100 transition-opacity ml-1 p-0.5 rounded hover:bg-gray-200 shrink-0"
-      title="복사"
+      title="Copy"
     >
       {copiedKey === copyKey
         ? <span className="text-emerald-500 text-xs">✓</span>
@@ -175,7 +175,9 @@ export default function ResumeChangesView({ tailored, structure }: Props) {
 
   return (
     <div className="space-y-3">
-      <p className="text-xs text-gray-400">Green = changed · Hover to copy</p>
+      <div className="bg-gray-50 rounded-xl px-4 py-3 text-xs text-gray-500 leading-relaxed">
+        AI rewrote the highlighted bullets to better match the job description. Review the changes on the right — copy any bullet you want to use, or export the full tailored resume below.
+      </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <p className="text-xs font-semibold text-gray-400 text-center mb-2">Original</p>

@@ -283,7 +283,7 @@ export default function ApplicationDetailPage() {
                   <span className="text-gray-400 text-sm">· {app.fit_analysis.overallScore}/100</span>
                   <span className={`text-sm ${v.text} hidden sm:block`}>· {app.fit_analysis.verdictReason}</span>
                 </div>
-                <span className="text-gray-400 text-xs shrink-0">{fitExpanded ? '▴ hide' : '▾ details'}</span>
+                <svg className={`text-gray-400 transition-transform shrink-0 ${fitExpanded ? 'rotate-180' : ''}`} width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 5.5l5 5 5-5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
               </button>
               {fitExpanded && (
                 <div className="px-5 pb-5 grid grid-cols-1 sm:grid-cols-3 gap-4 border-t border-gray-100 pt-4">
@@ -293,7 +293,11 @@ export default function ApplicationDetailPage() {
                       <div key={i} className="bg-white rounded-xl p-4">
                         <div className="flex items-center justify-between mb-2">
                           <span className="text-xs font-semibold text-gray-700">{cat.label}</span>
-                          <span className={`text-xs font-bold capitalize ${c.text}`}>{cat.score}</span>
+                          <div className="flex items-center gap-1.5">
+                            <span className={`text-xs font-bold capitalize ${c.text}`}>{cat.verdict}</span>
+                            <span className="text-xs text-gray-300">·</span>
+                            <span className="text-xs text-gray-400">{cat.score}/100</span>
+                          </div>
                         </div>
                         <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden mb-2">
                           <div className={`h-full rounded-full ${c.bar}`} style={{ width: `${cat.score}%` }} />

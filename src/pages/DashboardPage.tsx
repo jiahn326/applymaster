@@ -63,6 +63,7 @@ export default function DashboardPage() {
   const [filter, setFilter] = useState<FilterTab>('all')
   const [search, setSearch] = useState('')
   const [showNewPanel, setShowNewPanel] = useState(false)
+  const [undoItem, setUndoItem] = useState<{ app: Application; timer: ReturnType<typeof setTimeout> } | null>(null)
   const navigate = useNavigate()
   const { signOut } = useAuth()
 
@@ -91,11 +92,51 @@ export default function DashboardPage() {
     navigate(`/applications/${app.id}`)
   }
 
-  async function handleDelete(e: React.MouseEvent, id: string) {
+  function handleDelete(e: React.MouseEvent, id: string) {
     e.stopPropagation()
-    if (!confirm('Delete this application?')) return
-    await supabase.from('applications').delete().eq('id', id)
+    const app = applications.find(a => a.id === id)
+    if (!app) return
+
+    // Optimistically remove from UI
     setApplications(prev => prev.filter(a => a.id !== id))
+
+    // Cancel any existing undo
+    if (undoItem) {
+      clearTimeout(undoItem.timer)
+      supabase.from('applications').delete().eq('id', undoItem.app.id)
+    }
+
+    // Set new undo with 5s timer to actually delete
+    const timer = setTimeout(async () => {
+      await supabase.from('applications').delete().eq('id', id)
+      setUndoItem(null)
+    }, 5000)
+
+    setUndoItem({ app, timer })
+  }
+
+  function handleUndo() {
+    if (!undoItem) return
+    clearTimeout(undoItem.timer)
+    setApplications(prev => [undoItem.app, ...prev].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()))
+    setUndoItem(null)
+  }
+
+  async function handleSeedData() {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    const jd = `We are looking for a Software Engineer to join our team. You will design and build scalable frontend applications using React and TypeScript. You will collaborate with product and design teams to ship high-quality features. Requirements: 3+ years of experience with React and TypeScript, experience with REST APIs, strong communication skills.`
+    const seed = [
+      { company: 'Google', role: 'Software Engineer', status: 'applied', job_description: jd, fit_analysis: { verdict: 'Apply', overallScore: 82, verdictReason: 'Strong skills match with React and TypeScript experience.', categories: [{ label: 'Skills Match', score: 88, verdict: 'strong', summary: 'React and TypeScript align well.' }, { label: 'Experience Level', score: 75, verdict: 'good', summary: 'Mid-level experience fits.' }, { label: 'Location', score: 90, verdict: 'strong', summary: 'Remote-friendly role.' }] } },
+      { company: 'Stripe', role: 'Frontend Engineer', status: 'interviewing', job_description: jd, fit_analysis: { verdict: 'Apply', overallScore: 91, verdictReason: 'Excellent match across all categories.', categories: [{ label: 'Skills Match', score: 95, verdict: 'strong', summary: 'TypeScript and React are core stack.' }, { label: 'Experience Level', score: 85, verdict: 'strong', summary: 'Experience level is a great fit.' }, { label: 'Location', score: 95, verdict: 'strong', summary: 'SF-based, matches your location.' }] } },
+      { company: 'Meta', role: 'React Developer', status: 'rejected', job_description: jd, fit_analysis: { verdict: 'Maybe', overallScore: 61, verdictReason: 'Skills match but experience level is a stretch.', categories: [{ label: 'Skills Match', score: 78, verdict: 'good', summary: 'React experience is relevant.' }, { label: 'Experience Level', score: 45, verdict: 'reach', summary: '5+ years required, you have less.' }, { label: 'Location', score: 80, verdict: 'good', summary: 'Hybrid role in your area.' }] } },
+      { company: 'Vercel', role: 'Software Engineer', status: 'applied', job_description: jd, fit_analysis: { verdict: 'Apply', overallScore: 78, verdictReason: 'Good fit, especially on the frontend side.', categories: [{ label: 'Skills Match', score: 85, verdict: 'strong', summary: 'Next.js and TypeScript match well.' }, { label: 'Experience Level', score: 70, verdict: 'good', summary: 'Level aligns with your background.' }, { label: 'Location', score: 90, verdict: 'strong', summary: 'Remote-first company.' }] } },
+      { company: 'Notion', role: 'Product Engineer', status: 'offer', job_description: jd, fit_analysis: { verdict: 'Apply', overallScore: 88, verdictReason: 'Strong match with product-minded engineering focus.', categories: [{ label: 'Skills Match', score: 90, verdict: 'strong', summary: 'React and TypeScript are core.' }, { label: 'Experience Level', score: 82, verdict: 'strong', summary: 'Solid experience for this level.' }, { label: 'Location', score: 95, verdict: 'strong', summary: 'SF office, matches your location.' }] } },
+    ]
+    const { data } = await supabase.from('applications').insert(
+      seed.map(s => ({ ...s, user_id: user.id, job_url: null, notes: null, applied_through: null, cover_letter: null, cover_letter_submitted: false }))
+    ).select()
+    if (data) setApplications(prev => [...(data as Application[]), ...prev])
   }
 
   async function handleStatusChange(e: React.ChangeEvent<HTMLSelectElement>, id: string) {
@@ -147,6 +188,15 @@ export default function DashboardPage() {
             <button onClick={() => navigate('/resume/upload')}
               className="text-sm bg-amber-400 hover:bg-amber-500 text-amber-950 font-semibold px-3 py-1.5 rounded-lg transition-colors">
               Upload now
+            </button>
+          </div>
+        )}
+
+        {/* Dev seed button */}
+        {import.meta.env.DEV && (
+          <div className="mb-4 flex justify-end">
+            <button onClick={handleSeedData} className="text-xs text-gray-300 hover:text-gray-500 transition-colors">
+              [dev] seed test data
             </button>
           </div>
         )}
@@ -339,6 +389,14 @@ export default function DashboardPage() {
           </div>
         )}
       </main>
+
+      {/* Undo toast */}
+      {undoItem && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 bg-gray-900 text-white text-sm font-medium px-4 py-3 rounded-xl shadow-lg">
+          <span>Deleted <span className="text-gray-300">{undoItem.app.role} at {undoItem.app.company}</span></span>
+          <button onClick={handleUndo} className="text-blue-400 hover:text-blue-300 font-semibold transition-colors">Undo</button>
+        </div>
+      )}
 
       {/* New Application slide-in panel */}
       {showNewPanel && (

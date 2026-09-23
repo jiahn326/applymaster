@@ -48,6 +48,7 @@ export default function NewApplicationPanel({ onSaved, onClose }: Props) {
   const [saving, setSaving] = useState(false)
   const [tailoring, setTailoring] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [analyzeStep, setAnalyzeStep] = useState<'fetching' | 'analyzing' | 'checking'>('fetching')
   const [duplicate, setDuplicate] = useState<{ id: string; company: string; role: string; created_at: string; status: string } | null>(null)
   const pasteRef = useRef<HTMLTextAreaElement>(null)
 
@@ -75,6 +76,7 @@ export default function NewApplicationPanel({ onSaved, onClose }: Props) {
       }
 
       // Fetch URL content and resume in parallel
+      setAnalyzeStep('fetching')
       const [content, resumeData] = await Promise.race([
         Promise.all([
           isUrl
@@ -91,6 +93,7 @@ export default function NewApplicationPanel({ onSaved, onClose }: Props) {
       const currentLocation = resumeData.data?.[0]?.content?.current_location as string | undefined
       setResumeRawText(rawText)
 
+      setAnalyzeStep('analyzing')
       const result = await Promise.race([
         api.analyzeAndExtract(content, rawText, currentLocation),
         timeout,
@@ -118,6 +121,7 @@ export default function NewApplicationPanel({ onSaved, onClose }: Props) {
         )
       }
       if (dupeQueries.length > 0) {
+        setAnalyzeStep('checking')
         const dupeResults = await Promise.all(dupeQueries)
         const match = dupeResults.find(r => r.data && r.data.length > 0)
         setDuplicate(match?.data?.[0] ?? null)
@@ -249,9 +253,21 @@ export default function NewApplicationPanel({ onSaved, onClose }: Props) {
             />
 
             {step === 'analyzing' && (
-              <div className="mt-4 flex items-center gap-2 text-blue-600">
+              <div className="mt-4 flex flex-col items-center gap-3">
                 <div className="w-4 h-4 border-2 border-blue-200 border-t-blue-600 rounded-full animate-spin" />
-                <span className="text-sm font-medium animate-pulse">Analyzing your fit...</span>
+                <div className="flex flex-col items-center gap-1">
+                  {(['fetching', 'analyzing', 'checking'] as const).map((s, i) => {
+                    const labels = { fetching: 'Reading job posting...', analyzing: 'Analyzing your fit...', checking: 'Checking for duplicates...' }
+                    const idx = ['fetching', 'analyzing', 'checking'].indexOf(analyzeStep)
+                    const done = i < idx
+                    const active = s === analyzeStep
+                    return (
+                      <span key={s} className={`text-xs transition-all ${active ? 'text-blue-600 font-medium' : done ? 'text-gray-300 line-through' : 'text-gray-300'}`}>
+                        {labels[s]}
+                      </span>
+                    )
+                  })}
+                </div>
               </div>
             )}
 
