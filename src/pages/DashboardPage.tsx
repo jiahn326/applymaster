@@ -166,21 +166,6 @@ export default function DashboardPage() {
 
         {/* Toolbar */}
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 mb-4">
-          <div className="flex gap-2 sm:contents">
-            <button
-              onClick={() => setShowNewPanel(true)}
-              disabled={!hasResume}
-              className="flex items-center justify-center gap-1.5 bg-gray-900 hover:bg-gray-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors shadow-sm shrink-0"
-            >
-              <span className="text-base leading-none">+</span> New
-            </button>
-            <input
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              placeholder="Search by company or role..."
-              className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 bg-white"
-            />
-          </div>
           <div className="flex gap-1 bg-gray-100 p-1 rounded-lg overflow-x-auto shrink-0">
             {FILTER_TABS.map(tab => (
               <button key={tab.value} onClick={() => setFilter(tab.value)}
@@ -196,18 +181,59 @@ export default function DashboardPage() {
               </button>
             ))}
           </div>
+          <div className="flex gap-2 flex-1">
+            <input
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Search by company or role..."
+              className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 bg-white"
+            />
+            <button
+              onClick={() => setShowNewPanel(true)}
+              disabled={!hasResume}
+              className="flex items-center justify-center gap-1.5 bg-gray-900 hover:bg-gray-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors shadow-sm shrink-0"
+            >
+              <span className="text-base leading-none">+</span> New
+            </button>
+          </div>
         </div>
 
         {/* Empty state */}
         {!loading && filtered.length === 0 && (
-          <div className="bg-white border border-dashed border-gray-300 rounded-xl py-16 text-center">
-            <p className="text-3xl mb-3">📋</p>
-            <p className="text-gray-600 font-semibold text-sm">
-              {filter === 'all' && !search ? 'No applications yet' : 'No results'}
-            </p>
-            <p className="text-gray-400 text-xs mt-1">
-              {filter === 'all' && !search ? 'Click "+ New" to add your first application' : 'Try a different filter or search'}
-            </p>
+          <div className="bg-white border border-dashed border-gray-300 rounded-xl py-16 text-center px-6">
+            {filter === 'all' && !search ? (
+              <>
+                <p className="text-3xl mb-3">📋</p>
+                <p className="text-gray-700 font-semibold text-sm mb-1">No applications yet</p>
+                {!hasResume ? (
+                  <>
+                    <p className="text-gray-400 text-xs mb-4">Upload your resume first to get started</p>
+                    <button
+                      onClick={() => navigate('/resume/upload')}
+                      className="inline-flex items-center gap-1.5 bg-gray-900 hover:bg-gray-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
+                    >
+                      Upload Resume →
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-gray-400 text-xs mb-4">Paste a job URL or description to check your fit before applying</p>
+                    <button
+                      onClick={() => setShowNewPanel(true)}
+                      className="inline-flex items-center gap-1.5 bg-gray-900 hover:bg-gray-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
+                    >
+                      <span className="text-base leading-none">+</span> Add your first application
+                    </button>
+                  </>
+                )}
+              </>
+            ) : (
+              <>
+                <p className="text-3xl mb-3">🔍</p>
+                <p className="text-gray-600 font-semibold text-sm">No results</p>
+                <p className="text-gray-400 text-xs mt-1">Try a different filter or search</p>
+              </>
+            )}
           </div>
         )}
 

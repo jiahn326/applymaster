@@ -1,6 +1,9 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
 
+const DEV_EMAIL = import.meta.env.VITE_DEV_TEST_EMAIL as string | undefined
+const DEV_PASSWORD = import.meta.env.VITE_DEV_TEST_PASSWORD as string | undefined
+
 export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [sent, setSent] = useState(false)
@@ -69,6 +72,17 @@ export default function LoginPage() {
         <p className="text-gray-400 text-xs mt-6">
           Your data is private. Only you can see your applications.
         </p>
+
+        {DEV_EMAIL && DEV_PASSWORD && email === 'applymaster' && (
+          <div className="mt-4 pt-4 border-t border-dashed border-gray-200">
+            <button
+              onClick={() => supabase.auth.signInWithPassword({ email: DEV_EMAIL, password: DEV_PASSWORD })}
+              className="w-full bg-gray-100 hover:bg-gray-200 text-gray-600 text-xs font-medium py-2 rounded-lg transition-colors"
+            >
+              Sign in as test user
+            </button>
+          </div>
+        )}
       </div>
     </div>
   )
