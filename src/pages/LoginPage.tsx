@@ -16,7 +16,8 @@ export default function LoginPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!email || !password) return
+    if (!email) return
+    if (mode !== 'forgot' && !password) return
     setLoading(true)
     setError(null)
 
