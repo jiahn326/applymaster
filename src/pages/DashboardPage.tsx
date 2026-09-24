@@ -167,7 +167,7 @@ function ActivityHeatmap({ applications }: { applications: { created_at: string 
           const weekStart = cells[wi * 7]?.date
           const showMonth = wi === 0 || weekStart?.getDate() <= 7
           return (
-            <div key={wi} className="w-4 text-center">
+            <div key={wi} className="w-5 text-center">
               {showMonth && <span className="text-[9px] text-gray-300">{weekStart?.toLocaleDateString('en-US', { month: 'short' })}</span>}
             </div>
           )
@@ -178,7 +178,7 @@ function ActivityHeatmap({ applications }: { applications: { created_at: string 
         {/* Day labels */}
         <div className="flex flex-col gap-1 mr-1">
           {DAYS.map((d, i) => (
-            <div key={d} className="h-4 flex items-center">
+            <div key={d} className="h-5 flex items-center">
               {i % 2 === 1
                 ? <span className="text-[9px] text-gray-300 w-7 text-right">{d}</span>
                 : <span className="w-7" />}
@@ -192,19 +192,22 @@ function ActivityHeatmap({ applications }: { applications: { created_at: string 
             <div key={wi} className="flex flex-col gap-1">
               {Array.from({ length: 7 }).map((_, di) => {
                 const cell = cells[wi * 7 + di]
-                if (!cell) return <div key={di} className="w-4 h-4" />
+                if (!cell) return <div key={di} className="w-5 h-5" />
                 const isToday = cell.date.getTime() === today.getTime()
                 const emoji = cellEmoji(cell.count)
                 return (
                   <div
                     key={di}
-                    className={`w-4 h-4 rounded-sm flex items-center justify-center cursor-default transition-transform hover:scale-125 ${
-                      emoji ? '' : isToday ? 'bg-gray-100 ring-1 ring-gray-300' : 'bg-gray-100'
+                    className={`w-5 h-5 rounded flex items-center justify-center cursor-default transition-transform hover:scale-125 ${
+                      emoji ? 'bg-transparent' : isToday ? 'bg-gray-100 ring-1 ring-gray-300' : 'bg-gray-100'
                     }`}
                     onMouseEnter={e => handleMouseEnter(e, cell)}
                     onMouseLeave={() => setTooltip(null)}
                   >
-                    {emoji && <span className="text-[11px] leading-none select-none">{emoji}</span>}
+                    {emoji
+                      ? <span className="text-base leading-none select-none">{emoji}</span>
+                      : null
+                    }
                   </div>
                 )
               })}
