@@ -64,6 +64,10 @@ export default function DashboardPage() {
   const [search, setSearch] = useState('')
   const [showNewPanel, setShowNewPanel] = useState(false)
   const [undoItem, setUndoItem] = useState<{ app: Application; timer: ReturnType<typeof setTimeout> } | null>(null)
+  const [showChangePw, setShowChangePw] = useState(false)
+  const [newPw, setNewPw] = useState('')
+  const [pwLoading, setPwLoading] = useState(false)
+  const [pwMsg, setPwMsg] = useState<{ ok: boolean; text: string } | null>(null)
   const navigate = useNavigate()
   const { signOut } = useAuth()
 
@@ -122,6 +126,16 @@ export default function DashboardPage() {
     setUndoItem(null)
   }
 
+  async function handleChangePassword(e: React.FormEvent) {
+    e.preventDefault()
+    if (!newPw || newPw.length < 6) { setPwMsg({ ok: false, text: 'At least 6 characters' }); return }
+    setPwLoading(true)
+    const { error } = await supabase.auth.updateUser({ password: newPw })
+    if (error) setPwMsg({ ok: false, text: error.message })
+    else { setPwMsg({ ok: true, text: 'Password updated!' }); setNewPw(''); setTimeout(() => setShowChangePw(false), 1500) }
+    setPwLoading(false)
+  }
+
   async function handleSeedData() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
@@ -167,6 +181,10 @@ export default function DashboardPage() {
             <button onClick={() => navigate('/resume/upload')}
               className="text-sm text-gray-500 hover:text-gray-800 font-medium transition-colors">
               {hasResume ? '↑ Replace Resume' : '↑ Upload Resume'}
+            </button>
+            <button onClick={() => { setShowChangePw(true); setPwMsg(null); setNewPw('') }}
+              className="text-sm text-gray-400 hover:text-gray-700 font-medium transition-colors">
+              Change password
             </button>
             <button onClick={() => signOut()}
               className="text-sm text-gray-400 hover:text-gray-700 font-medium transition-colors">
@@ -395,6 +413,37 @@ export default function DashboardPage() {
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 bg-gray-900 text-white text-sm font-medium px-4 py-3 rounded-xl shadow-lg">
           <span>Deleted <span className="text-gray-300">{undoItem.app.role} at {undoItem.app.company}</span></span>
           <button onClick={handleUndo} className="text-blue-400 hover:text-blue-300 font-semibold transition-colors">Undo</button>
+        </div>
+      )}
+
+      {/* Change Password modal */}
+      {showChangePw && (
+        <div className="fixed inset-0 bg-black/30 z-50 flex items-center justify-center px-4" onClick={() => setShowChangePw(false)}>
+          <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-sm" onClick={e => e.stopPropagation()}>
+            <h2 className="text-lg font-bold text-gray-900 mb-5">Change password</h2>
+            <form onSubmit={handleChangePassword} className="space-y-3">
+              <input
+                type="password"
+                value={newPw}
+                onChange={e => setNewPw(e.target.value)}
+                placeholder="New password"
+                required
+                autoFocus
+                className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
+              />
+              {pwMsg && <p className={`text-xs ${pwMsg.ok ? 'text-emerald-600' : 'text-red-500'}`}>{pwMsg.text}</p>}
+              <div className="flex gap-2 pt-1">
+                <button type="button" onClick={() => setShowChangePw(false)}
+                  className="flex-1 border border-gray-200 text-gray-600 font-medium py-2.5 rounded-xl text-sm hover:bg-gray-50 transition-colors">
+                  Cancel
+                </button>
+                <button type="submit" disabled={pwLoading || !newPw}
+                  className="flex-1 bg-gray-900 hover:bg-gray-700 disabled:bg-gray-300 text-white font-semibold py-2.5 rounded-xl text-sm transition-colors">
+                  {pwLoading ? '...' : 'Update'}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
 
