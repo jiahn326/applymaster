@@ -141,23 +141,9 @@ function ActivityHeatmap({ applications }: { applications: { created_at: string 
           <span className="text-xs text-gray-400 italic">{motivationMessage(todayCount, streak)}</span>
         </div>
 
-        {/* Today's goal progress */}
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-gray-400">Today</span>
-          <div className="flex gap-1">
-            {Array.from({ length: DAILY_GOAL }).map((_, i) => (
-              <div key={i} className={`w-4 h-4 rounded-full border-2 transition-all ${
-                i < todayCount
-                  ? goalReached ? 'bg-emerald-400 border-emerald-400' : 'bg-gray-800 border-gray-800'
-                  : 'bg-transparent border-gray-200'
-              }`} />
-            ))}
-            {todayCount > DAILY_GOAL && (
-              <span className="text-xs font-bold text-emerald-500">+{todayCount - DAILY_GOAL}</span>
-            )}
-          </div>
-          <span className="text-xs font-semibold text-gray-500">{todayCount}/{DAILY_GOAL}</span>
-        </div>
+        <span className="text-xs font-semibold text-gray-500">
+          Today: <span className={goalReached ? 'text-emerald-500' : 'text-gray-800'}>{todayCount}</span>
+        </span>
       </div>
 
       {/* Month labels */}
