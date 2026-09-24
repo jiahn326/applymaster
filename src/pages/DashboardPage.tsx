@@ -56,6 +56,26 @@ function StatusSelect({ app, onChange }: { app: Application; onChange: (e: React
   )
 }
 
+const DAILY_GOAL = 3
+
+function cellEmoji(count: number) {
+  if (count === 0) return null
+  if (count === 1) return '🌱'
+  if (count === 2) return '🌿'
+  if (count === 3) return '🌳'
+  return '🔥'
+}
+
+function motivationMessage(todayCount: number, streak: number): string {
+  if (todayCount === 0 && streak === 0) return "Let's get started! 💪"
+  if (todayCount === 0) return `You had a ${streak}-day streak. Keep it up!`
+  if (todayCount >= DAILY_GOAL * 2) return 'Beast mode activated 🚀'
+  if (todayCount >= DAILY_GOAL) return "Goal reached! You're crushing it 🎉"
+  if (todayCount === DAILY_GOAL - 1) return 'Almost there! One more 👀'
+  if (streak >= 7) return `${streak} days straight 🔥 Unstoppable!`
+  return 'Good progress, keep going!'
+}
+
 function ActivityHeatmap({ applications }: { applications: { created_at: string }[] }) {
   const [tooltip, setTooltip] = useState<{ text: string; x: number; y: number } | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -64,7 +84,6 @@ function ActivityHeatmap({ applications }: { applications: { created_at: string 
   const today = new Date()
   today.setHours(0, 0, 0, 0)
 
-  // Count apps per day
   const countByDay: Record<string, number> = {}
   for (const a of applications) {
     const d = new Date(a.created_at)
@@ -73,7 +92,6 @@ function ActivityHeatmap({ applications }: { applications: { created_at: string 
     countByDay[key] = (countByDay[key] ?? 0) + 1
   }
 
-  // Build grid: WEEKS cols × 7 rows, ending today
   const startDay = new Date(today)
   startDay.setDate(today.getDate() - (WEEKS * 7 - 1))
 
@@ -85,7 +103,6 @@ function ActivityHeatmap({ applications }: { applications: { created_at: string 
     cells.push({ date: d, count: countByDay[key] ?? 0 })
   }
 
-  // Streak
   let streak = 0
   const check = new Date(today)
   while (true) {
@@ -95,18 +112,10 @@ function ActivityHeatmap({ applications }: { applications: { created_at: string 
     check.setDate(check.getDate() - 1)
   }
 
-  // Today's count
   const todayKey = today.toISOString().slice(0, 10)
   const todayCount = countByDay[todayKey] ?? 0
-
-  function cellColor(count: number, isToday: boolean) {
-    if (isToday && count === 0) return 'bg-gray-100 ring-1 ring-gray-300'
-    if (count === 0) return 'bg-gray-100'
-    if (count === 1) return 'bg-emerald-200'
-    if (count === 2) return 'bg-emerald-400'
-    if (count === 3) return 'bg-emerald-500'
-    return 'bg-emerald-700'
-  }
+  const goalPct = Math.min(todayCount / DAILY_GOAL, 1)
+  const goalReached = todayCount >= DAILY_GOAL
 
   const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
@@ -121,27 +130,44 @@ function ActivityHeatmap({ applications }: { applications: { created_at: string 
 
   return (
     <div ref={containerRef} className="bg-white rounded-2xl border border-gray-200 shadow-sm px-5 py-4 mb-6 relative">
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-3">
-          <span className="text-sm font-semibold text-gray-700">Activity</span>
+
+      {/* Top row: streak + message + today goal */}
+      <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+        <div className="flex items-center gap-2">
           {streak > 0 && (
-            <span className="text-xs font-semibold text-orange-500 bg-orange-50 px-2 py-0.5 rounded-full">
+            <span className="text-xs font-bold text-orange-500 bg-orange-50 px-2.5 py-1 rounded-full">
               🔥 {streak} day streak
             </span>
           )}
+          <span className="text-xs text-gray-400 italic">{motivationMessage(todayCount, streak)}</span>
         </div>
-        <span className="text-xs text-gray-400">
-          {todayCount > 0 ? `${todayCount} applied today` : 'No applications today'}
-        </span>
+
+        {/* Today's goal progress */}
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-gray-400">Today</span>
+          <div className="flex gap-1">
+            {Array.from({ length: DAILY_GOAL }).map((_, i) => (
+              <div key={i} className={`w-4 h-4 rounded-full border-2 transition-all ${
+                i < todayCount
+                  ? goalReached ? 'bg-emerald-400 border-emerald-400' : 'bg-gray-800 border-gray-800'
+                  : 'bg-transparent border-gray-200'
+              }`} />
+            ))}
+            {todayCount > DAILY_GOAL && (
+              <span className="text-xs font-bold text-emerald-500">+{todayCount - DAILY_GOAL}</span>
+            )}
+          </div>
+          <span className="text-xs font-semibold text-gray-500">{todayCount}/{DAILY_GOAL}</span>
+        </div>
       </div>
 
-      {/* Day labels */}
+      {/* Month labels */}
       <div className="flex gap-1 mb-1 ml-8">
         {Array.from({ length: WEEKS }).map((_, wi) => {
           const weekStart = cells[wi * 7]?.date
           const showMonth = wi === 0 || weekStart?.getDate() <= 7
           return (
-            <div key={wi} className="w-3 text-center">
+            <div key={wi} className="w-4 text-center">
               {showMonth && <span className="text-[9px] text-gray-300">{weekStart?.toLocaleDateString('en-US', { month: 'short' })}</span>}
             </div>
           )
@@ -149,36 +175,49 @@ function ActivityHeatmap({ applications }: { applications: { created_at: string 
       </div>
 
       <div className="flex gap-1">
-        {/* Row labels */}
+        {/* Day labels */}
         <div className="flex flex-col gap-1 mr-1">
           {DAYS.map((d, i) => (
-            <div key={d} className="h-3 flex items-center">
-              {i % 2 === 1 && <span className="text-[9px] text-gray-300 w-7 text-right">{d}</span>}
-              {i % 2 !== 1 && <span className="w-7" />}
+            <div key={d} className="h-4 flex items-center">
+              {i % 2 === 1
+                ? <span className="text-[9px] text-gray-300 w-7 text-right">{d}</span>
+                : <span className="w-7" />}
             </div>
           ))}
         </div>
 
-        {/* Grid */}
-        <div className="flex gap-1">
+        {/* Emoji grid */}
+        <div className="flex gap-1 overflow-x-auto">
           {Array.from({ length: WEEKS }).map((_, wi) => (
             <div key={wi} className="flex flex-col gap-1">
               {Array.from({ length: 7 }).map((_, di) => {
                 const cell = cells[wi * 7 + di]
-                if (!cell) return <div key={di} className="w-3 h-3" />
+                if (!cell) return <div key={di} className="w-4 h-4" />
                 const isToday = cell.date.getTime() === today.getTime()
+                const emoji = cellEmoji(cell.count)
                 return (
                   <div
                     key={di}
-                    className={`w-3 h-3 rounded-sm cursor-default transition-opacity hover:opacity-75 ${cellColor(cell.count, isToday)}`}
+                    className={`w-4 h-4 rounded-sm flex items-center justify-center cursor-default transition-transform hover:scale-125 ${
+                      emoji ? '' : isToday ? 'bg-gray-100 ring-1 ring-gray-300' : 'bg-gray-100'
+                    }`}
                     onMouseEnter={e => handleMouseEnter(e, cell)}
                     onMouseLeave={() => setTooltip(null)}
-                  />
+                  >
+                    {emoji && <span className="text-[11px] leading-none select-none">{emoji}</span>}
+                  </div>
                 )
               })}
             </div>
           ))}
         </div>
+      </div>
+
+      {/* Legend */}
+      <div className="flex gap-3 mt-3 justify-end">
+        {(['🌱 1', '🌿 2', '🌳 3', '🔥 4+'] as const).map(l => (
+          <span key={l} className="text-[10px] text-gray-300">{l}</span>
+        ))}
       </div>
 
       {/* Tooltip */}
