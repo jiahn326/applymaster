@@ -232,6 +232,7 @@ STRICT RULES — violations make the answer unusable:
 - Focus on: what in the JD aligns with the candidate's actual skills/experience, what specifically about the role or tech stack is a natural next step, what the candidate genuinely brings
 - No generic filler: "innovative", "passionate", "fast-paced", "excited to contribute", "make an impact"
 - Sound like a real engineer wrote it, not a career coach
+- The candidate is a non-native English speaker — write naturally but not overly polished. Avoid complex sentence structures, fancy vocabulary, or native-sounding idioms. Simple, clear, direct sentences only.
 - First person, plain text, no bullet points
 - Length: ${lengthGuide}
 
