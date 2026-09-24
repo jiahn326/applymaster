@@ -66,7 +66,7 @@ export default function ApplicationDetailPage() {
   const [structure, setStructure] = useState<ResumeStructure | null>(null)
   const [rawText, setRawText] = useState('')
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<'resume' | 'cover'>('resume')
+  const [activeTab, setActiveTab] = useState<'resume' | 'cover' | 'why'>('resume')
   const [toast, setToast] = useState<string | null>(null)
   const [editingMeta, setEditingMeta] = useState(false)
   const [editCompany, setEditCompany] = useState('')
@@ -83,6 +83,10 @@ export default function ApplicationDetailPage() {
   const [generatingCL, setGeneratingCL] = useState(false)
   const [coverLetterError, setCoverLetterError] = useState<string | null>(null)
   const [copiedCL, setCopiedCL] = useState(false)
+  const [whyAnswer, setWhyAnswer] = useState<string | null>(null)
+  const [generatingWhy, setGeneratingWhy] = useState(false)
+  const [whyLength, setWhyLength] = useState<'short' | 'medium' | 'long'>('medium')
+  const [copiedWhy, setCopiedWhy] = useState(false)
   const [fitExpanded, setFitExpanded] = useState(false)
   const [editingNotes, setEditingNotes] = useState(false)
   const [notesValue, setNotesValue] = useState('')
@@ -185,7 +189,21 @@ export default function ApplicationDetailPage() {
     await supabase.from('applications').update({ cover_letter_submitted: next }).eq('id', app.id)
   }
 
-  function handleTabClick(t: 'resume' | 'cover') {
+  async function handleGenerateWhy(length = whyLength) {
+    if (!app?.job_description) return
+    setGeneratingWhy(true)
+    try {
+      const { api } = await import('../lib/api')
+      const result = await api.generateWhyCompany(app.company, app.role, app.job_description, rawText, length)
+      setWhyAnswer(result)
+    } catch (err: any) {
+      alert('Generation failed: ' + (err.message ?? 'Unknown error'))
+    } finally {
+      setGeneratingWhy(false)
+    }
+  }
+
+  function handleTabClick(t: 'resume' | 'cover' | 'why') {
     setActiveTab(t)
     if (t === 'cover' && !coverLetter && !generatingCL && app?.job_description) {
       handleGenerateCoverLetter()
@@ -339,12 +357,12 @@ export default function ApplicationDetailPage() {
         <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
           {/* Tab bar */}
           <div className="flex border-b border-gray-100">
-            {(['resume', 'cover'] as const).map(t => (
+            {(['resume', 'cover', 'why'] as const).map(t => (
               <button key={t} onClick={() => handleTabClick(t)}
                 className={`flex-1 py-3 text-sm font-semibold transition-colors ${
                   activeTab === t ? 'text-gray-900 border-b-2 border-gray-900' : 'text-gray-400 hover:text-gray-600'
                 }`}>
-                {t === 'resume' ? '📄 Resume' : '✉️ Cover Letter'}
+                {t === 'resume' ? '📄 Resume' : t === 'cover' ? '✉️ Cover Letter' : `💬 Why ${app.company}?`}
               </button>
             ))}
           </div>
@@ -443,6 +461,52 @@ export default function ApplicationDetailPage() {
                   </button>
                 )}
                 {!app.job_description && <p className="text-gray-400 text-sm text-center">Add a job description to generate a cover letter.</p>}
+              </div>
+            )}
+
+            {/* Why Company tab */}
+            {activeTab === 'why' && (
+              <div className="space-y-4">
+                {/* Length selector */}
+                <div className="flex gap-2">
+                  {(['short', 'medium', 'long'] as const).map(l => (
+                    <button key={l} onClick={() => setWhyLength(l)}
+                      className={`flex-1 py-1.5 text-xs font-semibold rounded-lg border transition-colors capitalize ${
+                        whyLength === l ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-500 border-gray-200 hover:border-gray-400'
+                      }`}>
+                      {l}
+                    </button>
+                  ))}
+                </div>
+
+                {whyAnswer ? (
+                  <>
+                    <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
+                      <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">{whyAnswer}</p>
+                    </div>
+                    <div className="flex gap-2">
+                      <button onClick={() => { navigator.clipboard.writeText(whyAnswer); setCopiedWhy(true); setTimeout(() => setCopiedWhy(false), 1500) }}
+                        className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium py-2.5 rounded-xl text-sm transition-colors">
+                        {copiedWhy ? <span className="text-emerald-600">✓ Copied!</span> : 'Copy'}
+                      </button>
+                      <button onClick={() => handleGenerateWhy()} disabled={generatingWhy}
+                        className="flex-1 bg-gray-50 border border-gray-200 text-gray-500 font-medium py-2.5 rounded-xl hover:bg-gray-100 transition-all text-sm disabled:opacity-40">
+                        {generatingWhy ? '✨ Regenerating...' : '↺ Regenerate'}
+                      </button>
+                    </div>
+                  </>
+                ) : generatingWhy ? (
+                  <div className="flex flex-col items-center justify-center py-10 gap-3">
+                    <div className="w-6 h-6 border-2 border-gray-300 border-t-gray-900 rounded-full animate-spin" />
+                    <p className="text-sm text-gray-400">Writing your answer...</p>
+                  </div>
+                ) : (
+                  <button onClick={() => handleGenerateWhy()} disabled={!app.job_description}
+                    className="w-full bg-gray-900 hover:bg-gray-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-semibold py-3 rounded-xl transition-colors">
+                    ✨ Generate Answer
+                  </button>
+                )}
+                {!app.job_description && <p className="text-gray-400 text-sm text-center">Add a job description to generate an answer.</p>}
               </div>
             )}
           </div>

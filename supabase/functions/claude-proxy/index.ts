@@ -29,6 +29,7 @@ Deno.serve(async (req) => {
     else if (action === 'extractJobInfo')  result = await extractJobInfo(client, payload.content)
     else if (action === 'analyzeAndExtract') result = await analyzeAndExtract(client, payload.content, payload.resumeRawText, payload.currentLocation)
     else if (action === 'parseResumeStructure') result = await parseResumeStructure(client, payload.rawText)
+    else if (action === 'generateWhyCompany') result = await generateWhyCompany(client, payload.company, payload.role, payload.jobDescription, payload.resumeRawText, payload.length)
     else return new Response(JSON.stringify({ error: 'Unknown action' }), { status: 400, headers: corsHeaders })
 
     return new Response(JSON.stringify(result), {
@@ -82,9 +83,9 @@ BANNED WORDS & PHRASES (never use these):
 - worked closely
 
 BULLET RULES:
-- Lead with what you built or did, not how you felt about it
-- Include specific tech, numbers, or scale when available
-- Skip vague outcomes unless you have a real metric
+- If the original bullet already has a metric or number, lead with the outcome first, then explain how. Example: "Reduced errors by 40% by automating data validation checks" not "Built a validation system that reduced errors by 40%"
+- If the original bullet has NO metric, add a placeholder at the end: [add metric: e.g. reduced X by Y%?] — never invent numbers
+- Include specific tech, numbers, or scale when available in the original
 - Don't repeat the same verb more than once per section
 - Do NOT end bullets with a period
 - Never fabricate experience, skills, or achievements
@@ -213,6 +214,35 @@ Return JSON only:
   }` : 'null'}
 }`, 3072)
   return JSON.parse(text)
+}
+
+async function generateWhyCompany(client: Anthropic, company: string, role: string, jobDescription: string, resumeRawText?: string, length: 'short' | 'medium' | 'long' = 'medium') {
+  const lengthGuide = {
+    short: '2-3 sentences',
+    medium: '1 paragraph (4-6 sentences)',
+    long: '2 paragraphs',
+  }[length]
+
+  const text = await callClaude(client, `Write a genuine, specific answer to "Why do you want to work at ${company}?" for a ${role} application.
+
+RULES:
+- Sound like a real person, not a career coach
+- Be specific to this company and role — reference things from the JD
+- Connect to the candidate's actual background when resume is provided
+- No generic phrases like "innovative company", "passionate about", "fast-paced environment"
+- No filler or fluff
+- Length: ${lengthGuide}
+- Write in first person
+- Plain text only, no bullet points or markdown
+
+JOB DESCRIPTION:
+${jobDescription}
+
+${resumeRawText ? `CANDIDATE RESUME:\n${resumeRawText}` : ''}
+
+Return only the answer text, nothing else.`, 1024)
+
+  return { text }
 }
 
 async function parseResumeStructure(client: Anthropic, rawText: string) {

@@ -29,4 +29,7 @@ export const api = {
 
   parseResumeStructure: (rawText: string) =>
     callProxy('parseResumeStructure', { rawText }),
+
+  generateWhyCompany: (company: string, role: string, jobDescription: string, resumeRawText?: string, length?: 'short' | 'medium' | 'long') =>
+    callProxy('generateWhyCompany', { company, role, jobDescription, resumeRawText, length }).then(d => d.text as string),
 }
