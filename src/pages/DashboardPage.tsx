@@ -114,7 +114,6 @@ function ActivityHeatmap({ applications }: { applications: { created_at: string 
 
   const todayKey = today.toISOString().slice(0, 10)
   const todayCount = countByDay[todayKey] ?? 0
-  const goalPct = Math.min(todayCount / DAILY_GOAL, 1)
   const goalReached = todayCount >= DAILY_GOAL
 
   const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
