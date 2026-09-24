@@ -223,22 +223,22 @@ async function generateWhyCompany(client: Anthropic, company: string, role: stri
     long: '2 paragraphs',
   }[length]
 
-  const text = await callClaude(client, `Write a genuine, specific answer to "Why do you want to work at ${company}?" for a ${role} application.
+  const text = await callClaude(client, `Write a genuine answer to "Why do you want to work at ${company}?" for a ${role} application.
 
-RULES:
-- Sound like a real person, not a career coach
-- Be specific to this company and role — reference things from the JD
-- Connect to the candidate's actual background when resume is provided
-- No generic phrases like "innovative company", "passionate about", "fast-paced environment"
-- No filler or fluff
+STRICT RULES — violations make the answer unusable:
+- ONLY reference experience, skills, and background that exist in the resume
+- NEVER claim to have used ${company}'s product, been a customer, or admired the company for years unless it's in the resume
+- NEVER fabricate personal stories or anecdotes
+- Focus on: what in the JD aligns with the candidate's actual skills/experience, what specifically about the role or tech stack is a natural next step, what the candidate genuinely brings
+- No generic filler: "innovative", "passionate", "fast-paced", "excited to contribute", "make an impact"
+- Sound like a real engineer wrote it, not a career coach
+- First person, plain text, no bullet points
 - Length: ${lengthGuide}
-- Write in first person
-- Plain text only, no bullet points or markdown
 
 JOB DESCRIPTION:
 ${jobDescription}
 
-${resumeRawText ? `CANDIDATE RESUME:\n${resumeRawText}` : ''}
+${resumeRawText ? `CANDIDATE'S RESUME (only use what's actually here):\n${resumeRawText}` : '(No resume provided — base answer only on the JD and the candidate\'s likely background for this role)'}
 
 Return only the answer text, nothing else.`, 1024)
 
