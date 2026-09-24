@@ -1,13 +1,15 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
 
+type Mode = 'signin' | 'signup' | 'forgot'
+
 const DEV_EMAIL = import.meta.env.VITE_DEV_TEST_EMAIL as string | undefined
 const DEV_PASSWORD = import.meta.env.VITE_DEV_TEST_PASSWORD as string | undefined
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [mode, setMode] = useState<'signin' | 'signup'>('signin')
+  const [mode, setMode] = useState<Mode>('signin')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [sent, setSent] = useState(false)
@@ -18,7 +20,13 @@ export default function LoginPage() {
     setLoading(true)
     setError(null)
 
-    if (mode === 'signin') {
+    if (mode === 'forgot') {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      })
+      if (error) setError(error.message)
+      else setSent(true)
+    } else if (mode === 'signin') {
       const { error } = await supabase.auth.signInWithPassword({ email, password })
       if (error) setError(error.message)
     } else {
@@ -48,11 +56,38 @@ export default function LoginPage() {
           <div className="space-y-3">
             <div className="text-4xl">📬</div>
             <p className="font-semibold text-gray-900">Check your email</p>
-            <p className="text-gray-500 text-sm">We sent a confirmation link to <span className="font-medium text-gray-700">{email}</span>.</p>
+            <p className="text-gray-500 text-sm">
+              {mode === 'forgot'
+                ? <>We sent a password reset link to <span className="font-medium text-gray-700">{email}</span>.</>
+                : <>We sent a confirmation link to <span className="font-medium text-gray-700">{email}</span>.</>}
+            </p>
             <button onClick={() => { setSent(false); setMode('signin') }} className="text-xs text-gray-400 hover:text-gray-600 transition-colors mt-2">
               Back to sign in
             </button>
           </div>
+        ) : mode === 'forgot' ? (
+          <form onSubmit={handleSubmit} className="space-y-3">
+            <p className="text-gray-500 text-sm mb-2">Enter your email and we'll send a reset link.</p>
+            <input
+              type="email"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              placeholder="Email"
+              required
+              className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
+            />
+            {error && <p className="text-red-500 text-xs">{error}</p>}
+            <button
+              type="submit"
+              disabled={loading || !email}
+              className="w-full bg-gray-900 hover:bg-gray-700 disabled:bg-gray-300 text-white font-semibold py-3 rounded-xl transition-colors text-sm"
+            >
+              {loading ? '...' : 'Send reset link'}
+            </button>
+            <button type="button" onClick={() => { setMode('signin'); setError(null) }} className="text-xs text-gray-400 hover:text-gray-600 transition-colors">
+              Back to sign in
+            </button>
+          </form>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-3">
             <input
@@ -79,16 +114,21 @@ export default function LoginPage() {
             >
               {loading ? '...' : mode === 'signin' ? 'Sign in' : 'Create account'}
             </button>
-            <p className="text-xs text-gray-400">
-              {mode === 'signin' ? "Don't have an account?" : 'Already have an account?'}{' '}
-              <button
-                type="button"
-                onClick={() => { setMode(mode === 'signin' ? 'signup' : 'signin'); setError(null) }}
-                className="text-gray-600 hover:text-gray-900 underline"
-              >
-                {mode === 'signin' ? 'Sign up' : 'Sign in'}
+            <div className="flex justify-between text-xs text-gray-400">
+              <button type="button" onClick={() => { setMode('forgot'); setError(null) }} className="hover:text-gray-600 transition-colors">
+                Forgot password?
               </button>
-            </p>
+              <span>
+                {mode === 'signin' ? "No account?" : 'Have an account?'}{' '}
+                <button
+                  type="button"
+                  onClick={() => { setMode(mode === 'signin' ? 'signup' : 'signin'); setError(null) }}
+                  className="text-gray-600 hover:text-gray-900 underline"
+                >
+                  {mode === 'signin' ? 'Sign up' : 'Sign in'}
+                </button>
+              </span>
+            </div>
           </form>
         )}
 
