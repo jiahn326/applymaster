@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef } from 'react'
 import type { TailoredResume } from '../lib/tailorResume'
 import type { ResumeStructure } from '../lib/parseResumeStructure'
 import { applyTailoring, skillGroups, sectionTitle } from '../lib/resumeUtils'
@@ -45,7 +45,7 @@ function ResumePreview({ structure, rawText, changedSections = [], copyable = fa
   copyable?: boolean
   copiedKey?: string | null
   onCopy?: (text: string, key: string) => void
-  scrollRef?: React.RefObject<HTMLDivElement>
+  scrollRef?: React.RefObject<HTMLDivElement | null>
   onScroll?: (e: React.UIEvent<HTMLDivElement>) => void
 }) {
   const skills = skillGroups(structure)

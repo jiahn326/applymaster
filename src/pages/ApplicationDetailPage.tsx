@@ -7,21 +7,9 @@ async function lazyExportPdf(...args: Parameters<typeof import('../lib/exportRes
   const { exportPdf } = await import('../lib/exportResume')
   return exportPdf(...args)
 }
-async function lazyExportDocx(...args: Parameters<typeof import('../lib/exportResume').exportDocx>) {
-  const { exportDocx } = await import('../lib/exportResume')
-  return exportDocx(...args)
-}
 async function lazyExportGoogleDocs(...args: Parameters<typeof import('../lib/exportResume').exportGoogleDocs>) {
   const { exportGoogleDocs } = await import('../lib/exportResume')
   return exportGoogleDocs(...args)
-}
-async function lazyExportCoverLetterPdf(...args: Parameters<typeof import('../lib/exportResume').exportCoverLetterPdf>) {
-  const { exportCoverLetterPdf } = await import('../lib/exportResume')
-  return exportCoverLetterPdf(...args)
-}
-async function lazyExportCoverLetterDocx(...args: Parameters<typeof import('../lib/exportResume').exportCoverLetterDocx>) {
-  const { exportCoverLetterDocx } = await import('../lib/exportResume')
-  return exportCoverLetterDocx(...args)
 }
 import { tailorResume } from '../lib/tailorResume'
 import { generateCoverLetter } from '../lib/generateCoverLetter'
