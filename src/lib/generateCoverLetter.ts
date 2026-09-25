@@ -1,4 +1,5 @@
 import { api } from './api'
+import { supabase } from './supabase'
 
 export async function generateCoverLetter(
   company: string,
@@ -6,5 +7,15 @@ export async function generateCoverLetter(
   jobDescription: string,
   header?: { name: string; contact: string }
 ): Promise<string> {
-  return api.generateCoverLetter(company, role, jobDescription, header)
+  const { data: { user } } = await supabase.auth.getUser()
+  let template: string | undefined
+  if (user) {
+    const { data } = await supabase
+      .from('user_settings')
+      .select('cover_letter_template')
+      .eq('user_id', user.id)
+      .single()
+    template = data?.cover_letter_template ?? undefined
+  }
+  return api.generateCoverLetter(company, role, jobDescription, header, template)
 }

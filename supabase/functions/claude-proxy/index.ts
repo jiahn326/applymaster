@@ -25,7 +25,7 @@ Deno.serve(async (req) => {
     let result
     if (action === 'tailorResume')         result = await tailorResume(client, payload.resumeRawText, payload.jobDescription)
     else if (action === 'analyzeJobFit')   result = await analyzeJobFit(client, payload.resumeRawText, payload.jobDescription, payload.currentLocation)
-    else if (action === 'generateCoverLetter') result = await generateCoverLetter(client, payload.company, payload.role, payload.jobDescription, payload.header, payload.today)
+    else if (action === 'generateCoverLetter') result = await generateCoverLetter(client, payload.company, payload.role, payload.jobDescription, payload.header, payload.today, payload.template)
     else if (action === 'extractJobInfo')  result = await extractJobInfo(client, payload.content)
     else if (action === 'analyzeAndExtract') result = await analyzeAndExtract(client, payload.content, payload.resumeRawText, payload.currentLocation)
     else if (action === 'parseResumeStructure') result = await parseResumeStructure(client, payload.rawText)
@@ -133,31 +133,30 @@ Return JSON only:
   return JSON.parse(text)
 }
 
-async function generateCoverLetter(client: Anthropic, company: string, role: string, jobDescription: string, header?: { name: string; contact: string }, today?: string) {
+async function generateCoverLetter(client: Anthropic, company: string, role: string, jobDescription: string, header?: { name: string; contact: string }, today?: string, customTemplate?: string) {
   today = today ?? new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
   const headerName = header?.name ?? 'My Name'
   const headerContact = header?.contact ?? 'phone | email | linkedin'
-  const TEMPLATE = `${headerName}
+
+  const DEFAULT_TEMPLATE = `${headerName}
 ${headerContact}
 
 [TODAY_DATE]
 
 Dear Hiring Manager,
 
-I am writing to express my interest in the [POSITION_NAME] position at [COMPANY_NAME]. With a Bachelor of Science in Computer Science from the University of Bridgeport and relevant professional experience, I believe my skills align well with this opportunity.
-
-In my previous role at Catbotica, I collaborated with a team to develop an NFT Rendering Model Generator using TypeScript, which streamlined the creation and management of 12,000 digital assets in the blockchain ecosystem. I successfully connected backend systems and developed custom scripts to facilitate seamless data exchange. At Innerwave, I built an internal Java Spring Boot web application that enhanced accessibility for company developers, tracking over 5,000 medical terms through a CRUD dashboard.
-
-My technical skills include Java, JavaScript, TypeScript, Python, C++, Spring Framework, React Native, Node.js, SQL, and experience with development tools such as Git, Jira, and Confluence.
-
-I am particularly interested in [COMPANY_NAME] because of [SPECIFIC_ASPECT_OF_COMPANY]. My experience with [RELEVANT_SKILL] aligns well with your [SPECIFIC_PROJECT_OR_REQUIREMENT], and I am excited about the opportunity to contribute to your innovative projects. I am confident that my technical background and collaborative approach would make me a valuable addition to your team.
+[BODY]
 
 Thank you for considering my application. I look forward to discussing how my background would benefit your team.
 
 Sincerely,
 ${headerName}`
 
-  const text = await callClaude(client, `Fill in this cover letter template. Replace ONLY the placeholders.
+  const template = customTemplate
+    ? customTemplate.replace('[NAME]', headerName).replace('[CONTACT]', headerContact)
+    : DEFAULT_TEMPLATE
+
+  const text = await callClaude(client, `Fill in this cover letter template for a job application. Replace placeholders with specific, relevant content based on the JD.
 
 COMPANY: ${company}
 ROLE: ${role}
@@ -167,7 +166,15 @@ JOB DESCRIPTION:
 ${jobDescription}
 
 TEMPLATE:
-${TEMPLATE}
+${template}
+
+Rules:
+- Replace [TODAY_DATE] with today's date
+- Replace [COMPANY_NAME] with the company name
+- Replace [POSITION_NAME] with the role
+- Replace [BODY] with 2-3 paragraphs connecting the candidate's background to the JD
+- Keep the overall structure and tone of the template
+- Return only the completed letter text, no markdown
 
 Return only the completed letter text, no markdown.`, 2048)
 

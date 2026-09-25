@@ -5,6 +5,7 @@ import ApplicationDetailPage from './pages/ApplicationDetailPage'
 import LandingPage from './pages/LandingPage'
 import LoginPage from './pages/LoginPage'
 import ResetPasswordPage from './pages/ResetPasswordPage'
+import SettingsPage from './pages/SettingsPage'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { useAuth } from './hooks/useAuth'
 
@@ -43,6 +44,7 @@ export default function App() {
           <Route path="/resume/upload" element={<AuthGuard><UploadResumePage /></AuthGuard>} />
           <Route path="/applications/:id" element={<AuthGuard><ErrorBoundary><ApplicationDetailPage /></ErrorBoundary></AuthGuard>} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
+          <Route path="/settings" element={<AuthGuard><SettingsPage /></AuthGuard>} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>
