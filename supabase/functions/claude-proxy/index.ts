@@ -84,7 +84,7 @@ BANNED WORDS & PHRASES (never use these):
 
 BULLET RULES:
 - If the original bullet already has a metric or number, lead with the outcome first, then explain how. Example: "Reduced errors by 40% by automating data validation checks" not "Built a validation system that reduced errors by 40%"
-- If the original bullet has NO metric, add a placeholder at the end: [add metric: e.g. reduced X by Y%?] — never invent numbers
+- If the original bullet has NO metric, rewrite it as clearly as possible without inventing numbers
 - Include specific tech, numbers, or scale when available in the original
 - Don't repeat the same verb more than once per section
 - Do NOT end bullets with a period

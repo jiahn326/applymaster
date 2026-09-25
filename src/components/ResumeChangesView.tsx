@@ -1,4 +1,4 @@
-import { useState, Fragment } from 'react'
+import { useState } from 'react'
 import type { TailoredResume } from '../lib/tailorResume'
 import type { ResumeStructure } from '../lib/parseResumeStructure'
 
@@ -7,19 +7,6 @@ interface Props {
   structure: ResumeStructure
 }
 
-
-function HighlightedBullet({ text }: { text: string }) {
-  const parts = text.split(/(\[add metric:[^\]]*\])/gi)
-  return (
-    <>
-      {parts.map((part, i) =>
-        /^\[add metric:/i.test(part)
-          ? <mark key={i} className="bg-red-100 text-red-600 rounded px-0.5 not-italic font-medium">{part}</mark>
-          : <Fragment key={i}>{part}</Fragment>
-      )}
-    </>
-  )
-}
 
 // Apply tailoring to structure
 function applyTailoring(structure: ResumeStructure, tailored: TailoredResume): ResumeStructure {
@@ -120,7 +107,7 @@ function ResumePreview({ structure, changedSections = [], copyable = false, copi
               <div className="flex justify-between text-gray-600"><span className="italic">{exp.title}</span><span className="italic">{exp.dates}</span></div>
               <div className="group relative">
                 {exp.bullets.map((b, j) => (
-                  <div key={j} className="pl-2 text-gray-700">● <HighlightedBullet text={b} /></div>
+                  <div key={j} className="pl-2 text-gray-700">● {b}</div>
                 ))}
                 {copyable && onCopy && (
                   <div className="absolute top-0 right-0">
@@ -142,7 +129,7 @@ function ResumePreview({ structure, changedSections = [], copyable = false, copi
               <div><span className="font-bold">{proj.name}</span>{proj.tech && <span className="text-gray-600"> ({proj.tech})</span>}</div>
               <div className="group relative">
                 {proj.bullets.map((b, j) => (
-                  <div key={j} className="pl-2 text-gray-700">● <HighlightedBullet text={b} /></div>
+                  <div key={j} className="pl-2 text-gray-700">● {b}</div>
                 ))}
                 {copyable && onCopy && (
                   <div className="absolute top-0 right-0">

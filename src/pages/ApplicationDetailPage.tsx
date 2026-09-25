@@ -373,13 +373,6 @@ export default function ApplicationDetailPage() {
               <div className="space-y-5">
                 {app.tailored_resume && structure ? (
                   <>
-                    {/* Metric placeholder warning */}
-                    {app.tailored_resume.diffs.some(d => d.accepted && d.tailored.includes('[add metric:')) && (
-                      <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-xs text-amber-800">
-                        <span className="shrink-0">⚠️</span>
-                        <span>Some bullets have <span className="font-semibold">[add metric: ...]</span> placeholders — fill them in before submitting your resume.</span>
-                      </div>
-                    )}
                     {/* Export row + Re-tailor */}
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide mr-1">Export</span>
