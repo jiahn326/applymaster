@@ -34,6 +34,14 @@ function applyTailoring(structure: ResumeStructure, tailored: TailoredResume): R
     }
   }
 
+  // Strip unfilled metric placeholders before export
+  for (const exp of result.experience) {
+    exp.bullets = exp.bullets.map(b => b.replace(/\s*\[add metric:[^\]]*\]/gi, '').trim())
+  }
+  for (const proj of result.projects) {
+    proj.bullets = proj.bullets.map(b => b.replace(/\s*\[add metric:[^\]]*\]/gi, '').trim())
+  }
+
   return result
 }
 
