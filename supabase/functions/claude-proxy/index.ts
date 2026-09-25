@@ -73,13 +73,16 @@ Deno.serve(async (req) => {
   }
 })
 
-async function callClaude(client: Anthropic, prompt: string, maxTokens = 4096) {
+async function callClaude(client: Anthropic, prompt: string, maxTokens = 16000) {
   const message = await client.messages.create({
-    model: 'claude-sonnet-4-6',
+    model: 'claude-sonnet-5',
     max_tokens: maxTokens,
     messages: [{ role: 'user', content: prompt }],
   })
-  const raw = message.content[0].type === 'text' ? message.content[0].text : ''
+  if (message.stop_reason === 'max_tokens') throw new Error('Claude response was truncated (max_tokens reached)')
+  // Sonnet 5 runs adaptive thinking by default, so content[0] may be a thinking block
+  const textBlock = message.content.find(b => b.type === 'text')
+  const raw = textBlock?.type === 'text' ? textBlock.text : ''
   return raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim()
 }
 
@@ -111,9 +114,6 @@ seamless, robust, leveraged, spearheaded, ensured, passionate, detail-oriented, 
 FABRICATION:
 Never invent metrics, technologies, or experience not in the original bullet.
 
-SKILLS RULES:
-Only include skills already in the resume AND relevant to the JD.
-
 MASTER RESUME:
 ${resumeRawText}
 
@@ -122,9 +122,7 @@ ${jobDescription}
 
 Return JSON only:
 {
-  "diffs": [{ "section": "<company or project name>", "index": <0-based>, "original": "<text>", "tailored": "<text>" }],
-  "tailoredSkills": { "languages": [], "tools": [] },
-  "originalSkills": { "languages": [], "tools": [] }
+  "diffs": [{ "section": "<company or project name>", "index": <0-based>, "original": "<text>", "tailored": "<text>" }]
 }`)
   const parsed = JSON.parse(text)
   return { ...parsed, diffs: parsed.diffs.map((d: any) => ({ ...d, accepted: true })) }
@@ -149,7 +147,7 @@ Return JSON only:
     { "label": "Experience Level", "score": <0-100>, "verdict": "strong"|"good"|"reach"|"weak", "summary": "<1-2 sentences>" },
     { "label": "Location", "score": <0-100>, "verdict": "strong"|"good"|"reach"|"weak", "summary": "<1-2 sentences>" }
   ]
-}`, 2048)
+}`, 8000)
   return JSON.parse(text)
 }
 
@@ -196,7 +194,7 @@ Rules:
 - Keep the overall structure and tone of the template
 - Return only the completed letter text, no markdown
 
-Return only the completed letter text, no markdown.`, 2048)
+Return only the completed letter text, no markdown.`, 8000)
 
   return { text }
 }
@@ -208,7 +206,7 @@ TEXT:
 ${content}
 
 Return JSON only:
-{ "company": "", "role": "", "jobDescription": "" }`, 2048)
+{ "company": "", "role": "", "jobDescription": "" }`, 8000)
   return JSON.parse(text)
 }
 
@@ -239,7 +237,7 @@ Return JSON only:
       { "label": "Location", "score": <0-100>, "verdict": "strong"|"good"|"reach"|"weak", "summary": "<1-2 sentences>" }
     ]
   }` : 'null'}
-}`, 3072)
+}`, 12000)
   return JSON.parse(text)
 }
 
@@ -268,7 +266,7 @@ ${jobDescription}
 
 ${resumeRawText ? `CANDIDATE'S RESUME (only use what's actually here):\n${resumeRawText}` : '(No resume provided — base answer only on the JD and the candidate\'s likely background for this role)'}
 
-Return only the answer text, nothing else.`, 1024)
+Return only the answer text, nothing else.`, 4000)
 
   return { text }
 }
@@ -276,14 +274,19 @@ Return only the answer text, nothing else.`, 1024)
 async function parseResumeStructure(client: Anthropic, rawText: string) {
   const text = await callClaude(client, `Parse this resume into structured JSON.
 
+Copy text exactly as written. Do not drop, merge, rename, or reorder anything.
+- sectionTitles: each section heading exactly as it appears (e.g. "PROJECTS", "Personal Projects", "Technical Skills")
+- skills.groups: one entry per skill line in the original, in original order, with the label as written (e.g. "Languages", "Frameworks", "Tools") and every item on that line
+
 RESUME:
 ${rawText}
 
 Return JSON only:
 {
   "header": { "name": "", "contact": "" },
+  "sectionTitles": { "education": "", "skills": "", "experience": "", "projects": "" },
   "education": [{ "school": "", "location": "", "degree": "", "dates": "", "awards": "" }],
-  "skills": { "languages": [], "tools": [] },
+  "skills": { "groups": [{ "label": "", "items": [] }] },
   "experience": [{ "company": "", "location": "", "title": "", "dates": "", "bullets": [] }],
   "projects": [{ "name": "", "tech": "", "dates": "", "bullets": [] }]
 }`)

@@ -1,11 +1,12 @@
 import { useState, useRef, useEffect } from 'react'
 import type { TailoredResume } from '../lib/tailorResume'
 import type { ResumeStructure } from '../lib/parseResumeStructure'
-import { applyTailoring } from '../lib/resumeUtils'
+import { applyTailoring, skillGroups, sectionTitle } from '../lib/resumeUtils'
 
 interface Props {
   tailored: TailoredResume
   structure: ResumeStructure
+  rawText?: string
 }
 
 
@@ -37,8 +38,9 @@ function CopyButton({ text, copyKey, copiedKey, onCopy }: { text: string; copyKe
   )
 }
 
-function ResumePreview({ structure, changedSections = [], copyable = false, copiedKey, onCopy, scrollRef, onScroll }: {
+function ResumePreview({ structure, rawText, changedSections = [], copyable = false, copiedKey, onCopy, scrollRef, onScroll }: {
   structure: ResumeStructure
+  rawText?: string
   changedSections?: string[]
   copyable?: boolean
   copiedKey?: string | null
@@ -46,6 +48,7 @@ function ResumePreview({ structure, changedSections = [], copyable = false, copi
   scrollRef?: React.RefObject<HTMLDivElement>
   onScroll?: (e: React.UIEvent<HTMLDivElement>) => void
 }) {
+  const skills = skillGroups(structure)
   return (
     <div ref={scrollRef} onScroll={onScroll} className="text-xs leading-relaxed p-4 bg-white border border-gray-200 rounded-xl overflow-y-auto max-h-[600px]">
       {/* Header */}
@@ -55,7 +58,7 @@ function ResumePreview({ structure, changedSections = [], copyable = false, copi
       </div>
 
       {/* Education */}
-      <ResumeSection title="EDUCATION">
+      <ResumeSection title={sectionTitle(structure, 'education', rawText)}>
         {structure.education.map((edu, i) => (
           <div key={i} className="mb-2">
             <div className="flex justify-between"><span className="font-bold">{edu.school}</span><span>{edu.location}</span></div>
@@ -66,20 +69,21 @@ function ResumePreview({ structure, changedSections = [], copyable = false, copi
       </ResumeSection>
 
       {/* Skills */}
-      <ResumeSection title="SKILLS" highlighted={changedSections.includes('skills')}>
-        <div className="group flex items-start gap-1">
-          <div className="flex-1">
-            <span className="font-bold">Languages: </span>{structure.skills.languages.join(', ')}
-          </div>
+      <ResumeSection title={sectionTitle(structure, 'skills', rawText)}>
+        <div className="group relative">
+          {skills.map((g, i) => (
+            <div key={i}><span className="font-bold">{g.label}: </span>{g.items.join(', ')}</div>
+          ))}
           {copyable && onCopy && (
-            <CopyButton text={`Languages: ${structure.skills.languages.join(', ')}\nTools: ${structure.skills.tools.join(', ')}`} copyKey="skills" copiedKey={copiedKey ?? null} onCopy={onCopy} />
+            <div className="absolute top-0 right-0">
+              <CopyButton text={skills.map(g => `${g.label}: ${g.items.join(', ')}`).join('\n')} copyKey="skills" copiedKey={copiedKey ?? null} onCopy={onCopy} />
+            </div>
           )}
         </div>
-        <div><span className="font-bold">Tools: </span>{structure.skills.tools.join(', ')}</div>
       </ResumeSection>
 
       {/* Experience — grouped by company */}
-      <ResumeSection title="EXPERIENCE">
+      <ResumeSection title={sectionTitle(structure, 'experience', rawText)}>
         {(() => {
           const groups: { company: string; location: string; isChanged: boolean; roles: { title: string; dates: string; bullets: string[]; expIdx: number }[] }[] = []
           structure.experience.forEach((exp, i) => {
@@ -117,7 +121,7 @@ function ResumePreview({ structure, changedSections = [], copyable = false, copi
       </ResumeSection>
 
       {/* Projects */}
-      <ResumeSection title="PERSONAL PROJECTS">
+      <ResumeSection title={sectionTitle(structure, 'projects', rawText)}>
         {structure.projects.map((proj, i) => {
           const isChanged = changedSections.includes(proj.name)
           return (
@@ -146,7 +150,7 @@ function ResumePreview({ structure, changedSections = [], copyable = false, copi
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export default function ResumeChangesView({ tailored, structure }: Props) {
+export default function ResumeChangesView({ tailored, structure, rawText }: Props) {
   const [copiedKey, setCopiedKey] = useState<string | null>(null)
   const leftRef = useRef<HTMLDivElement>(null)
   const rightRef = useRef<HTMLDivElement>(null)
@@ -178,8 +182,6 @@ export default function ResumeChangesView({ tailored, structure }: Props) {
   )
 
   const changedSections = [
-    ...(tailored.tailoredSkills.languages.length !== structure.skills.languages.length ||
-        tailored.tailoredSkills.tools.length !== structure.skills.tools.length ? ['skills'] : []),
     ...experienceDiffs.map(d => d.section),
     ...projectDiffs.map(d => d.section),
   ]
@@ -193,12 +195,13 @@ export default function ResumeChangesView({ tailored, structure }: Props) {
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <p className="text-xs font-semibold text-gray-400 text-center mb-2">Original</p>
-          <ResumePreview structure={structure} scrollRef={leftRef} onScroll={() => syncScroll('left')} />
+          <ResumePreview structure={structure} rawText={rawText} scrollRef={leftRef} onScroll={() => syncScroll('left')} />
         </div>
         <div>
           <p className="text-xs font-semibold text-emerald-600 text-center mb-2">Tailored</p>
           <ResumePreview
             structure={tailoredStructure}
+            rawText={rawText}
             changedSections={changedSections}
             copyable
             copiedKey={copiedKey}

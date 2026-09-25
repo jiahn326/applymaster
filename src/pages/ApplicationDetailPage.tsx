@@ -408,10 +408,10 @@ export default function ApplicationDetailPage() {
                     {/* Export row + Re-tailor */}
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide mr-1">Export</span>
-                      <button onClick={() => lazyExportPdf(structure, app.tailored_resume!, fileName)}
+                      <button onClick={() => lazyExportPdf(structure, app.tailored_resume!, fileName, rawText)}
                         className="bg-gray-50 border border-gray-200 text-gray-700 font-medium px-3 py-1.5 rounded-lg hover:bg-gray-100 transition-all text-xs">↓ PDF</button>
                       <button
-                        onClick={() => lazyExportGoogleDocs(structure, app.tailored_resume!)}
+                        onClick={() => lazyExportGoogleDocs(structure, app.tailored_resume!, rawText)}
                         className="bg-gray-50 border border-gray-200 text-gray-700 font-medium px-3 py-1.5 rounded-lg hover:bg-gray-100 transition-all text-xs"
                         title="Download HTML → upload to Google Drive → open with Google Docs"
                       >↓ Google Docs</button>
@@ -420,7 +420,7 @@ export default function ApplicationDetailPage() {
                         {tailoring ? '✨ Re-tailoring...' : '↺ Re-tailor'}
                       </button>
                     </div>
-                    <ResumeChangesView tailored={app.tailored_resume} structure={structure} />
+                    <ResumeChangesView tailored={app.tailored_resume} structure={structure} rawText={rawText} />
                   </>
                 ) : (
                   <button onClick={handleTailor} disabled={tailoring || !app.job_description}

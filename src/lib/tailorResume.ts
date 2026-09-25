@@ -10,8 +10,9 @@ export interface BulletDiff {
 
 export interface TailoredResume {
   diffs: BulletDiff[]
-  tailoredSkills: { languages: string[]; tools: string[] }
-  originalSkills: { languages: string[]; tools: string[] }
+  // Legacy fields from older tailoring results — no longer applied, skills always come from the original resume
+  tailoredSkills?: { languages: string[]; tools: string[] }
+  originalSkills?: { languages: string[]; tools: string[] }
 }
 
 export async function tailorResume(
