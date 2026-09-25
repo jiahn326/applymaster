@@ -261,33 +261,30 @@ export default function DashboardPage() {
     navigate(`/applications/${app.id}`)
   }
 
-  function handleDelete(e: React.MouseEvent, id: string) {
+  async function handleDelete(e: React.MouseEvent, id: string) {
     e.stopPropagation()
     const app = applications.find(a => a.id === id)
     if (!app) return
 
-    // Optimistically remove from UI
+    // Remove from UI and DB immediately
     setApplications(prev => prev.filter(a => a.id !== id))
+    await supabase.from('applications').delete().eq('id', id)
 
-    // Cancel any existing undo
-    if (undoItem) {
-      clearTimeout(undoItem.timer)
-      supabase.from('applications').delete().eq('id', undoItem.app.id)
-    }
+    // Cancel any previous undo toast
+    if (undoItem) clearTimeout(undoItem.timer)
 
-    // Set new undo with 5s timer to actually delete
-    const timer = setTimeout(async () => {
-      await supabase.from('applications').delete().eq('id', id)
-      setUndoItem(null)
-    }, 5000)
-
+    const timer = setTimeout(() => setUndoItem(null), 5000)
     setUndoItem({ app, timer })
   }
 
-  function handleUndo() {
+  async function handleUndo() {
     if (!undoItem) return
     clearTimeout(undoItem.timer)
-    setApplications(prev => [undoItem.app, ...prev].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()))
+    // Re-insert the deleted row
+    const { data } = await supabase.from('applications').insert(undoItem.app).select().single()
+    if (data) {
+      setApplications(prev => [data as Application, ...prev].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()))
+    }
     setUndoItem(null)
   }
 

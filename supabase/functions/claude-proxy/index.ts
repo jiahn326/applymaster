@@ -1,44 +1,75 @@
 import Anthropic from 'npm:@anthropic-ai/sdk'
+import { createClient } from 'npm:@supabase/supabase-js@2'
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+const ALLOWED_ORIGIN = Deno.env.get('ALLOWED_ORIGIN') ?? '*'
+
+function corsHeaders(origin: string) {
+  const allowed = ALLOWED_ORIGIN === '*' ? '*' : ALLOWED_ORIGIN
+  return {
+    'Access-Control-Allow-Origin': allowed,
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  }
+}
+
+function json(body: unknown, status = 200, origin = '*') {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' },
+  })
+}
+
+const REQUIRED: Record<string, string[]> = {
+  tailorResume:         ['resumeRawText', 'jobDescription'],
+  analyzeJobFit:        ['resumeRawText', 'jobDescription'],
+  generateCoverLetter:  ['company', 'role', 'jobDescription'],
+  extractJobInfo:       ['content'],
+  analyzeAndExtract:    ['content'],
+  parseResumeStructure: ['rawText'],
+  generateWhyCompany:   ['company', 'role', 'jobDescription'],
 }
 
 Deno.serve(async (req) => {
+  const origin = req.headers.get('origin') ?? '*'
+
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
+    return new Response('ok', { headers: corsHeaders(origin) })
   }
 
-  // Verify request includes a Supabase JWT (anon or user token)
-  const authHeader = req.headers.get('Authorization') || req.headers.get('apikey') || ''
-  if (!authHeader.startsWith('Bearer ') && !authHeader.startsWith('eyJ')) {
-    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-      status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    })
-  }
+  // Verify JWT via Supabase auth
+  const authHeader = req.headers.get('Authorization') ?? ''
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : authHeader
+  if (!token) return json({ error: 'Unauthorized' }, 401, origin)
+
+  const supabase = createClient(
+    Deno.env.get('SUPABASE_URL')!,
+    Deno.env.get('SUPABASE_ANON_KEY')!
+  )
+  const { error: authError } = await supabase.auth.getUser(token)
+  if (authError) return json({ error: 'Unauthorized' }, 401, origin)
 
   try {
     const { action, payload } = await req.json()
+
+    // Validate required fields
+    const required = REQUIRED[action]
+    if (!required) return json({ error: 'Unknown action' }, 400, origin)
+    const missing = required.filter(k => !payload?.[k])
+    if (missing.length) return json({ error: `Missing fields: ${missing.join(', ')}` }, 400, origin)
+
     const client = new Anthropic({ apiKey: Deno.env.get('ANTHROPIC_API_KEY')! })
 
     let result
-    if (action === 'tailorResume')         result = await tailorResume(client, payload.resumeRawText, payload.jobDescription)
-    else if (action === 'analyzeJobFit')   result = await analyzeJobFit(client, payload.resumeRawText, payload.jobDescription, payload.currentLocation)
+    if (action === 'tailorResume')            result = await tailorResume(client, payload.resumeRawText, payload.jobDescription)
+    else if (action === 'analyzeJobFit')      result = await analyzeJobFit(client, payload.resumeRawText, payload.jobDescription, payload.currentLocation)
     else if (action === 'generateCoverLetter') result = await generateCoverLetter(client, payload.company, payload.role, payload.jobDescription, payload.header, payload.today, payload.template)
-    else if (action === 'extractJobInfo')  result = await extractJobInfo(client, payload.content)
-    else if (action === 'analyzeAndExtract') result = await analyzeAndExtract(client, payload.content, payload.resumeRawText, payload.currentLocation)
+    else if (action === 'extractJobInfo')     result = await extractJobInfo(client, payload.content)
+    else if (action === 'analyzeAndExtract')  result = await analyzeAndExtract(client, payload.content, payload.resumeRawText, payload.currentLocation)
     else if (action === 'parseResumeStructure') result = await parseResumeStructure(client, payload.rawText)
     else if (action === 'generateWhyCompany') result = await generateWhyCompany(client, payload.company, payload.role, payload.jobDescription, payload.resumeRawText, payload.length)
-    else return new Response(JSON.stringify({ error: 'Unknown action' }), { status: 400, headers: corsHeaders })
 
-    return new Response(JSON.stringify(result), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    })
+    return json(result, 200, origin)
   } catch (err) {
-    return new Response(JSON.stringify({ error: err.message }), {
-      status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    })
+    return json({ error: err.message }, 500, origin)
   }
 })
 
@@ -53,46 +84,35 @@ async function callClaude(client: Anthropic, prompt: string, maxTokens = 4096) {
 }
 
 async function tailorResume(client: Anthropic, resumeRawText: string, jobDescription: string) {
-  const text = await callClaude(client, `You are a resume rewriter for a software engineer. Rewrite experience bullets to match the job description provided. Follow these rules strictly:
+  const text = await callClaude(client, `You are a resume editor for a software engineer. Your only job is to swap terminology to mirror the job description — nothing else.
 
-TONE & STYLE:
-- Write like a real engineer wrote it, not a career coach
-- Plain, direct language only
-- 1-2 lines per bullet max
-- Always start bullets with a past-tense action verb
+WHEN TO REWRITE A BULLET:
+Only include a bullet in diffs if you can make a concrete terminology swap. Examples of valid rewrites:
+- JD says "distributed systems" → resume says "large-scale backend" → swap to "distributed systems"
+- JD says "CI/CD pipelines" → resume says "automated deployments" → swap to "CI/CD pipelines"
+- JD says "cross-functional teams" → resume says "multiple teams" → swap to "cross-functional teams"
 
-BANNED WORDS & PHRASES (never use these):
-- seamless / seamlessly
-- robust
-- leveraged
-- spearheaded
-- ensured
-- passionate / passion
-- from start to finish
-- plan, shape, and build
-- improving performance and reliability
-- improving team productivity
-- critical technical decisions
-- across the stack
-- owning / took ownership of
-- enhancing the process of
-- in a fast-paced environment
-- detail-oriented
-- results-driven
-- collaborated closely
-- worked closely
+DO NOT rewrite a bullet if:
+- It already uses the same terms as the JD
+- You can only make it longer or more detailed
+- The only change would be cosmetic
 
-BULLET RULES:
-- If the original bullet already has a metric or number, lead with the outcome first, then explain how. Example: "Reduced errors by 40% by automating data validation checks" not "Built a validation system that reduced errors by 40%"
-- If the original bullet has NO metric, rewrite it as clearly as possible without inventing numbers
-- Include specific tech, numbers, or scale when available in the original
-- Don't repeat the same verb more than once per section
-- Do NOT end bullets with a period
-- Never fabricate experience, skills, or achievements
-- Only rewrite existing content to better match the JD's language
+LENGTH RULE (strict):
+The rewritten bullet must be the same length or shorter than the original. Do not add clauses, context, or elaboration. Swap words, don't expand sentences.
+
+TONE:
+- Plain, direct — like an engineer wrote it
+- Past-tense action verb to start
+- No periods at the end
+
+BANNED WORDS (never use):
+seamless, robust, leveraged, spearheaded, ensured, passionate, detail-oriented, results-driven, collaborated closely, worked closely, across the stack, fast-paced, took ownership
+
+FABRICATION:
+Never invent metrics, technologies, or experience not in the original bullet.
 
 SKILLS RULES:
-- Only include skills that already exist in the resume AND are relevant to the JD
+Only include skills already in the resume AND relevant to the JD.
 
 MASTER RESUME:
 ${resumeRawText}
@@ -265,7 +285,7 @@ Return JSON only:
   "education": [{ "school": "", "location": "", "degree": "", "dates": "", "awards": "" }],
   "skills": { "languages": [], "tools": [] },
   "experience": [{ "company": "", "location": "", "title": "", "dates": "", "bullets": [] }],
-  "projects": [{ "name": "", "tech": "", "bullets": [] }]
+  "projects": [{ "name": "", "tech": "", "dates": "", "bullets": [] }]
 }`)
   return JSON.parse(text)
 }

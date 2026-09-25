@@ -14,7 +14,7 @@ export async function generateCoverLetter(
       .from('user_settings')
       .select('cover_letter_template')
       .eq('user_id', user.id)
-      .single()
+      .maybeSingle()
     template = data?.cover_letter_template ?? undefined
   }
   return api.generateCoverLetter(company, role, jobDescription, header, template)

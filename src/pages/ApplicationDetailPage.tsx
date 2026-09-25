@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { VERDICT_CONFIG, CATEGORY_COLOR } from '../lib/fitConfig'
 // Lazy-loaded to keep initial bundle small
 async function lazyExportPdf(...args: Parameters<typeof import('../lib/exportResume').exportPdf>) {
   const { exportPdf } = await import('../lib/exportResume')
@@ -38,19 +39,6 @@ const STATUS_CONFIG: Record<Status, { label: string; className: string }> = {
   offer:        { label: '🎉 Offer',     className: 'bg-emerald-50 text-emerald-600 ring-1 ring-emerald-200' },
 }
 
-const VERDICT_CONFIG = {
-  Apply: { label: 'Apply', bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200', dot: 'bg-emerald-500' },
-  Maybe: { label: 'Maybe', bg: 'bg-amber-50',   text: 'text-amber-700',   border: 'border-amber-200',   dot: 'bg-amber-400' },
-  Skip:  { label: 'Skip',  bg: 'bg-red-50',     text: 'text-red-600',     border: 'border-red-200',     dot: 'bg-red-400' },
-}
-
-const CATEGORY_COLOR = {
-  strong: { text: 'text-emerald-600', bar: 'bg-emerald-400' },
-  good:   { text: 'text-blue-600',    bar: 'bg-blue-400' },
-  reach:  { text: 'text-amber-600',   bar: 'bg-amber-400' },
-  weak:   { text: 'text-red-500',     bar: 'bg-red-400' },
-}
-
 interface Application {
   id: string
   company: string
@@ -85,14 +73,17 @@ export default function ApplicationDetailPage() {
     setTimeout(() => setToast(null), 4000)
   }
   const [tailoring, setTailoring] = useState(false)
+  const [tailoringSlow, setTailoringSlow] = useState(false)
   const [reanalyzing, setReanalyzing] = useState(false)
   const [coverLetter, setCoverLetter] = useState<string | null>(null)
   const [coverLetterSubmitted, setCoverLetterSubmitted] = useState(false)
   const [generatingCL, setGeneratingCL] = useState(false)
+  const [generatingCLSlow, setGeneratingCLSlow] = useState(false)
   const [coverLetterError, setCoverLetterError] = useState<string | null>(null)
   const [copiedCL, setCopiedCL] = useState(false)
   const [whyAnswer, setWhyAnswer] = useState<string | null>(null)
   const [generatingWhy, setGeneratingWhy] = useState(false)
+  const [generatingWhySlow, setGeneratingWhySlow] = useState(false)
   const [whyLength, setWhyLength] = useState<'short' | 'medium' | 'long'>('medium')
   const [copiedWhy, setCopiedWhy] = useState(false)
   const [fitExpanded, setFitExpanded] = useState(false)
@@ -100,17 +91,47 @@ export default function ApplicationDetailPage() {
   const [notesValue, setNotesValue] = useState('')
   const notesRef = useRef<HTMLTextAreaElement>(null)
 
+  // Warn on browser close/refresh when editing
+  useEffect(() => {
+    const unsaved = editingMeta || editingNotes
+    const handler = (e: BeforeUnloadEvent) => { if (unsaved) { e.preventDefault(); e.returnValue = '' } }
+    window.addEventListener('beforeunload', handler)
+    return () => window.removeEventListener('beforeunload', handler)
+  }, [editingMeta, editingNotes])
+
+  // Slow warning for long-running API calls
+  useEffect(() => {
+    if (!tailoring) { setTailoringSlow(false); return }
+    const t = setTimeout(() => setTailoringSlow(true), 12000)
+    return () => clearTimeout(t)
+  }, [tailoring])
+
+  useEffect(() => {
+    if (!generatingCL) { setGeneratingCLSlow(false); return }
+    const t = setTimeout(() => setGeneratingCLSlow(true), 12000)
+    return () => clearTimeout(t)
+  }, [generatingCL])
+
+  useEffect(() => {
+    if (!generatingWhy) { setGeneratingWhySlow(false); return }
+    const t = setTimeout(() => setGeneratingWhySlow(true), 12000)
+    return () => clearTimeout(t)
+  }, [generatingWhy])
+
   useEffect(() => {
     async function load() {
-      const [{ data: appData }, { data: resumes }] = await Promise.all([
+      const [{ data: appData }, { data: settingsData }, { data: resumesData }] = await Promise.all([
         supabase.from('applications').select('*').eq('id', id).single(),
-        supabase.from('resumes').select('content').order('created_at', { ascending: false }).limit(1),
+        supabase.from('user_settings').select('active_resume_id').single(),
+        supabase.from('resumes').select('id, content').order('created_at', { ascending: false }),
       ])
       const a = appData as Application
       setApp(a)
       setNotesValue(a?.notes ?? '')
-      setStructure(resumes?.[0]?.content?.structure ?? null)
-      setRawText(resumes?.[0]?.content?.raw_text ?? '')
+      const activeId = (settingsData as any)?.active_resume_id
+      const resume = resumesData?.find((r: any) => r.id === activeId) ?? resumesData?.[0]
+      setStructure(resume?.content?.structure ?? null)
+      setRawText(resume?.content?.raw_text ?? '')
       if (a?.cover_letter) setCoverLetter(a.cover_letter)
       setCoverLetterSubmitted(a?.cover_letter_submitted ?? false)
       setLoading(false)
@@ -237,7 +258,10 @@ export default function ApplicationDetailPage() {
       {/* Header */}
       <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
         <div className="max-w-6xl mx-auto px-6 h-14 flex items-center gap-4">
-          <button onClick={() => navigate('/dashboard')} className="text-gray-400 hover:text-gray-700 transition-colors text-lg">←</button>
+          <button onClick={() => {
+            if ((editingMeta || editingNotes) && !confirm('Unsaved changes will be lost. Leave anyway?')) return
+            navigate('/dashboard')
+          }} className="text-gray-400 hover:text-gray-700 transition-colors text-lg">←</button>
           {editingMeta ? (
             <div className="flex-1 flex items-center gap-2 min-w-0">
               <input value={editCompany} onChange={e => setEditCompany(e.target.value)}
@@ -386,8 +410,6 @@ export default function ApplicationDetailPage() {
                       <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide mr-1">Export</span>
                       <button onClick={() => lazyExportPdf(structure, app.tailored_resume!, fileName)}
                         className="bg-gray-50 border border-gray-200 text-gray-700 font-medium px-3 py-1.5 rounded-lg hover:bg-gray-100 transition-all text-xs">↓ PDF</button>
-                      <button onClick={() => lazyExportDocx(structure, app.tailored_resume!, fileName)}
-                        className="bg-gray-50 border border-gray-200 text-gray-700 font-medium px-3 py-1.5 rounded-lg hover:bg-gray-100 transition-all text-xs">↓ DOCX</button>
                       <button
                         onClick={() => lazyExportGoogleDocs(structure, app.tailored_resume!)}
                         className="bg-gray-50 border border-gray-200 text-gray-700 font-medium px-3 py-1.5 rounded-lg hover:bg-gray-100 transition-all text-xs"
@@ -453,6 +475,7 @@ export default function ApplicationDetailPage() {
                   <div className="flex flex-col items-center justify-center py-10 gap-3">
                     <div className="w-6 h-6 border-2 border-gray-300 border-t-gray-900 rounded-full animate-spin" />
                     <p className="text-sm text-gray-400">Generating cover letter...</p>
+                    {generatingCLSlow && <p className="text-amber-500 text-xs">Taking longer than usual — hang tight</p>}
                   </div>
                 ) : coverLetterError ? (
                   <div className="flex flex-col items-center justify-center py-10 gap-3">
@@ -507,6 +530,7 @@ export default function ApplicationDetailPage() {
                   <div className="flex flex-col items-center justify-center py-10 gap-3">
                     <div className="w-6 h-6 border-2 border-gray-300 border-t-gray-900 rounded-full animate-spin" />
                     <p className="text-sm text-gray-400">Writing your answer...</p>
+                    {generatingWhySlow && <p className="text-amber-500 text-xs">Taking longer than usual — hang tight</p>}
                   </div>
                 ) : (
                   <button onClick={() => handleGenerateWhy()} disabled={!app.job_description}
@@ -541,6 +565,7 @@ export default function ApplicationDetailPage() {
             <div className="text-center">
               <p className="font-semibold text-gray-900">Tailoring your resume</p>
               <p className="text-gray-400 text-sm mt-1">Claude is rewriting your bullets to match the JD...</p>
+              {tailoringSlow && <p className="text-amber-500 text-xs mt-2">Taking longer than usual — hang tight</p>}
             </div>
           </div>
         </div>

@@ -122,7 +122,13 @@ function analyzeResume(text: string): ATSResult {
 
   const allCapsLines = text.split('\n').filter(line => {
     const trimmed = line.trim()
-    return trimmed.length > 3 && trimmed.length < 30 && trimmed === trimmed.toUpperCase() && /[A-Z]/.test(trimmed)
+    return (
+      trimmed.length > 3 &&
+      trimmed.length < 30 &&
+      trimmed.includes(' ') &&
+      trimmed === trimmed.toUpperCase() &&
+      /[A-Z]/.test(trimmed)
+    )
   })
   if (allCapsLines.length > 3) {
     warnings.push({

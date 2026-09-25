@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
 import { api } from '../lib/api'
 import type { JobFitAnalysis } from '../lib/analyzeJobFit'
+import { VERDICT_CONFIG, CATEGORY_COLOR } from '../lib/fitConfig'
 
 type AppliedThrough = 'linkedin' | 'indeed' | 'company' | 'referral' | 'other'
 type Step = 'paste' | 'analyzing' | 'analysis' | 'form'
@@ -14,19 +15,6 @@ const APPLIED_THROUGH: { value: AppliedThrough; label: string }[] = [
   { value: 'referral', label: 'Referral' },
   { value: 'other',    label: 'Other' },
 ]
-
-const VERDICT_CONFIG = {
-  Apply: { label: 'Apply',  bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200', dot: 'bg-emerald-500', btn: 'bg-emerald-600 hover:bg-emerald-700' },
-  Maybe: { label: 'Maybe',  bg: 'bg-amber-50',   text: 'text-amber-700',   border: 'border-amber-200',   dot: 'bg-amber-400',   btn: 'bg-amber-500 hover:bg-amber-600' },
-  Skip:  { label: 'Skip',   bg: 'bg-red-50',     text: 'text-red-600',     border: 'border-red-200',     dot: 'bg-red-400',     btn: 'bg-gray-600 hover:bg-gray-700' },
-}
-
-const CATEGORY_COLOR = {
-  strong: { text: 'text-emerald-600', bar: 'bg-emerald-400' },
-  good:   { text: 'text-blue-600',    bar: 'bg-blue-400' },
-  reach:  { text: 'text-amber-600',   bar: 'bg-amber-400' },
-  weak:   { text: 'text-red-500',     bar: 'bg-red-400' },
-}
 
 interface Props {
   onSaved: (app: any) => void
@@ -77,20 +65,24 @@ export default function NewApplicationPanel({ onSaved, onClose }: Props) {
 
       // Fetch URL content and resume in parallel
       setAnalyzeStep('fetching')
-      const [content, resumeData] = await Promise.race([
+      const [content, settingsData, resumesData] = await Promise.race([
         Promise.all([
           isUrl
             ? fetch(`https://r.jina.ai/${trimmed}`, { headers: { 'Accept': 'text/plain' } })
                 .then(r => r.ok ? r.text() : trimmed)
                 .catch(() => trimmed)
             : Promise.resolve(trimmed),
-          supabase.from('resumes').select('content').order('created_at', { ascending: false }).limit(1),
+          supabase.from('user_settings').select('active_resume_id').single(),
+          supabase.from('resumes').select('id, content').order('created_at', { ascending: false }),
         ]),
         timeout,
       ])
 
-      const rawText = resumeData.data?.[0]?.content?.raw_text as string | undefined
-      const currentLocation = resumeData.data?.[0]?.content?.current_location as string | undefined
+      const activeId = (settingsData as any)?.data?.active_resume_id
+      const resumeList = (resumesData as any)?.data ?? []
+      const activeResume = resumeList.find((r: any) => r.id === activeId) ?? resumeList[0]
+      const rawText = activeResume?.content?.raw_text as string | undefined
+      const currentLocation = activeResume?.content?.current_location as string | undefined
       setResumeRawText(rawText)
 
       setAnalyzeStep('analyzing')

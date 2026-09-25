@@ -2,48 +2,7 @@ import JSZip from 'jszip'
 import { jsPDF } from 'jspdf'
 import type { TailoredResume } from './tailorResume'
 import type { ResumeStructure } from './parseResumeStructure'
-
-// Apply accepted diffs and skill overrides to the structure
-function applyTailoring(structure: ResumeStructure, tailored: TailoredResume): ResumeStructure {
-  const result: ResumeStructure = JSON.parse(JSON.stringify(structure))
-
-  // Apply skill overrides
-  result.skills.languages = tailored.tailoredSkills.languages
-  result.skills.tools = tailored.tailoredSkills.tools
-
-  // Apply accepted bullet rewrites
-  for (const diff of tailored.diffs) {
-    if (!diff.accepted) continue
-
-    // Search experience
-    for (const exp of result.experience) {
-      if (exp.company === diff.section || exp.title === diff.section) {
-        if (exp.bullets[diff.index] !== undefined) {
-          exp.bullets[diff.index] = diff.tailored
-        }
-      }
-    }
-
-    // Search projects
-    for (const proj of result.projects) {
-      if (proj.name === diff.section || proj.name.startsWith(diff.section)) {
-        if (proj.bullets[diff.index] !== undefined) {
-          proj.bullets[diff.index] = diff.tailored
-        }
-      }
-    }
-  }
-
-  // Strip unfilled metric placeholders before export
-  for (const exp of result.experience) {
-    exp.bullets = exp.bullets.map(b => b.replace(/\s*\[add metric:[^\]]*\]/gi, '').trim())
-  }
-  for (const proj of result.projects) {
-    proj.bullets = proj.bullets.map(b => b.replace(/\s*\[add metric:[^\]]*\]/gi, '').trim())
-  }
-
-  return result
-}
+import { applyTailoring } from './resumeUtils'
 
 // ─── DOCX Export (minimal OOXML, Google Docs compatible) ────────────────────
 
@@ -126,10 +85,18 @@ export async function exportDocx(
   // Projects
   paras.push(sectionHeader('PERSONAL PROJECTS'))
   for (const proj of s.projects) {
-    paras.push(p(
-      r(proj.name, { bold: true, sz: 20 }) + (proj.tech ? r(` (${proj.tech})`, { sz: 20 }) : ''),
-      { spAfter: 40 }
-    ))
+    if (proj.dates) {
+      paras.push(twoColPara(
+        proj.name + (proj.tech ? ` (${proj.tech})` : ''),
+        proj.dates,
+        true
+      ))
+    } else {
+      paras.push(p(
+        r(proj.name, { bold: true, sz: 20 }) + (proj.tech ? r(` (${proj.tech})`, { sz: 20 }) : ''),
+        { spAfter: 40 }
+      ))
+    }
     for (const b of proj.bullets) paras.push(bullet(b))
     paras.push(p('', { spAfter: 40 }))
   }
@@ -267,12 +234,25 @@ export function exportPdf(
     boldLabel('Tools: ', s.skills.tools.join(', '))
     y += 4 * ls
 
-    // Experience
+    // Experience — group consecutive entries by company
     sectionHeader('EXPERIENCE')
+    const expGroups: { company: string; location: string; roles: { title: string; dates: string; bullets: string[] }[] }[] = []
     for (const exp of s.experience) {
-      twoCol(exp.company, exp.location, true)
-      twoCol(exp.title, exp.dates, false, true)
-      for (const b of exp.bullets) bulletLine(b)
+      const last = expGroups[expGroups.length - 1]
+      if (last && last.company === exp.company) {
+        last.roles.push({ title: exp.title, dates: exp.dates, bullets: exp.bullets })
+      } else {
+        expGroups.push({ company: exp.company, location: exp.location, roles: [{ title: exp.title, dates: exp.dates, bullets: exp.bullets }] })
+      }
+    }
+    for (const group of expGroups) {
+      twoCol(group.company, group.location, true)
+      for (const role of group.roles) {
+        twoCol(role.title, role.dates, false, true)
+      }
+      for (const role of group.roles) {
+        for (const b of role.bullets) bulletLine(b)
+      }
       y += 6 * ls
     }
 
@@ -288,6 +268,10 @@ export function exportPdf(
         doc.setFont('helvetica', 'normal')
         doc.text(` (${proj.tech})`, ml + nameWidth, y)
       }
+      if (proj.dates) {
+        doc.setFont('helvetica', 'italic')
+        doc.text(proj.dates, pageWidth - mr, y, { align: 'right' })
+      }
       y += 14 * ls
       for (const b of proj.bullets) bulletLine(b)
       y += 6 * ls
@@ -300,8 +284,8 @@ export function exportPdf(
   const measureDoc = new jsPDF({ unit: 'pt', format: [pageWidth, 10000] })
   const finalY = renderTo(measureDoc, 1)
 
-  // Scale all spacing so content fills the letter page (cap at 1.4×)
-  const ls = Math.min((letterHeight - 100) / (finalY - 50), 1.4)
+  // Scale spacing to fill the page (min 0.85 — slight compression ok, max 1.4 — don't over-stretch)
+  const ls = Math.max(Math.min((letterHeight - 100) / (finalY - 50), 1.4), 0.85)
 
   // Pass 2: render on letter page with scaled spacing
   const realDoc = new jsPDF({ unit: 'pt', format: [pageWidth, letterHeight] })
