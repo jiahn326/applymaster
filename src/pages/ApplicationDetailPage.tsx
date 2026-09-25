@@ -441,7 +441,7 @@ export default function ApplicationDetailPage() {
                       {coverLetter}
                     </pre>
                     <div className="flex gap-2">
-                      <button onClick={() => lazyExportCoverLetterPdf(coverLetter!, fileName)}
+                      <button onClick={() => lazyExportCoverLetterPdf(coverLetter!, fileName, structure?.header)}
                         className="flex-1 bg-gray-50 border border-gray-200 text-gray-700 font-medium py-2.5 rounded-xl hover:bg-gray-100 transition-all text-sm">
                         ↓ PDF
                       </button>

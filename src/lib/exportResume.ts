@@ -311,27 +311,58 @@ export function exportPdf(
 
 // ─── Cover Letter PDF Export ────────────────────────────────────────────────
 
-export function exportCoverLetterPdf(text: string, fileName: string): void {
+export function exportCoverLetterPdf(text: string, fileName: string, header?: { name: string; contact: string }): void {
   const doc = new jsPDF({ unit: 'pt', format: 'letter' })
-  const ml = 72, mr = 72
+  const ml = 50, mr = 50
   const pageWidth = 612
   const pageHeight = 792
   const contentWidth = pageWidth - ml - mr
-  let y = 72
+  let y = 50
 
+  // Strip header lines from text (name + contact at top) so we don't duplicate
+  let bodyLines = text.split('\n')
+  if (header) {
+    // Skip leading lines that match name or contact
+    let skip = 0
+    for (let i = 0; i < Math.min(4, bodyLines.length); i++) {
+      const l = bodyLines[i].trim()
+      if (l === header.name.trim() || l === header.contact.trim() || l === '') skip = i + 1
+      else break
+    }
+    bodyLines = bodyLines.slice(skip)
+  }
+
+  // Centered header — matches resume style
+  if (header) {
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(16.5)
+    doc.text(header.name, pageWidth / 2, y, { align: 'center' })
+    y += 18
+
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(10)
+    doc.setTextColor(100)
+    doc.text(header.contact, pageWidth / 2, y, { align: 'center' })
+    y += 14
+
+    // Dividing line
+    doc.setDrawColor(30)
+    doc.setLineWidth(0.5)
+    doc.line(ml, y, pageWidth - mr, y)
+    y += 18
+    doc.setTextColor(0)
+  }
+
+  // Body
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(11)
 
-  const lines = text.split('\n')
-  for (const line of lines) {
-    if (y > pageHeight - 72) { doc.addPage(); y = 72 }
-    if (line.trim() === '') {
-      y += 11
-      continue
-    }
+  for (const line of bodyLines) {
+    if (y > pageHeight - 60) { doc.addPage(); y = 60 }
+    if (line.trim() === '') { y += 7; continue }
     const wrapped = doc.splitTextToSize(line, contentWidth)
     for (const wl of wrapped) {
-      if (y > pageHeight - 72) { doc.addPage(); y = 72 }
+      if (y > pageHeight - 60) { doc.addPage(); y = 60 }
       doc.text(wl, ml, y)
       y += 15
     }
