@@ -309,6 +309,37 @@ export function exportPdf(
   realDoc.save(`${fileName}.pdf`)
 }
 
+// ─── Cover Letter PDF Export ────────────────────────────────────────────────
+
+export function exportCoverLetterPdf(text: string, fileName: string): void {
+  const doc = new jsPDF({ unit: 'pt', format: 'letter' })
+  const ml = 72, mr = 72
+  const pageWidth = 612
+  const pageHeight = 792
+  const contentWidth = pageWidth - ml - mr
+  let y = 72
+
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(11)
+
+  const lines = text.split('\n')
+  for (const line of lines) {
+    if (y > pageHeight - 72) { doc.addPage(); y = 72 }
+    if (line.trim() === '') {
+      y += 11
+      continue
+    }
+    const wrapped = doc.splitTextToSize(line, contentWidth)
+    for (const wl of wrapped) {
+      if (y > pageHeight - 72) { doc.addPage(); y = 72 }
+      doc.text(wl, ml, y)
+      y += 15
+    }
+  }
+
+  doc.save(`${fileName}_cover_letter.pdf`)
+}
+
 // ─── Google Docs Export ─────────────────────────────────────────────────────
 
 export function exportGoogleDocs(
