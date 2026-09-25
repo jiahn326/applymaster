@@ -309,63 +309,151 @@ export function exportPdf(
   realDoc.save(`${fileName}.pdf`)
 }
 
-// ─── Cover Letter PDF Export ────────────────────────────────────────────────
+// ─── Cover Letter DOCX Export ───────────────────────────────────────────────
 
-export function exportCoverLetterPdf(text: string, fileName: string, header?: { name: string; contact: string }): void {
-  const doc = new jsPDF({ unit: 'pt', format: 'letter' })
-  const ml = 50, mr = 50
-  const pageWidth = 612
-  const pageHeight = 792
-  const contentWidth = pageWidth - ml - mr
-  let y = 50
+export async function exportCoverLetterDocx(text: string, fileName: string, header?: { name: string; contact: string }): Promise<void> {
+  const paras: string[] = []
 
-  // Strip header lines from text (name + contact at top) so we don't duplicate
+  // Strip header lines from text
   let bodyLines = text.split('\n')
   if (header) {
-    // Skip leading lines that match name or contact
     let skip = 0
-    for (let i = 0; i < Math.min(4, bodyLines.length); i++) {
+    for (let i = 0; i < Math.min(5, bodyLines.length); i++) {
       const l = bodyLines[i].trim()
-      if (l === header.name.trim() || l === header.contact.trim() || l === '') skip = i + 1
-      else break
+      if (l === '' || l === header.name.trim() || header.contact.split('|').some(part => l.includes(part.trim()))) {
+        skip = i + 1
+      } else break
     }
     bodyLines = bodyLines.slice(skip)
   }
 
-  // Centered header — matches resume style
+  // Header
+  if (header) {
+    paras.push(p(r(header.name, { bold: true, sz: 28 }), { center: true, spAfter: 40 }))
+    paras.push(p(r(header.contact, { sz: 20 }), { center: true, spAfter: 0 }))
+    // Divider line
+    paras.push(p(r('_'.repeat(80), { sz: 20 }), { spBefore: 60, spAfter: 160 }))
+  }
+
+  // Body — group into paragraphs
+  const paragraphs: string[] = []
+  let current = ''
+  for (const line of bodyLines) {
+    if (line.trim() === '') {
+      if (current.trim()) { paragraphs.push(current.trim()); current = '' }
+    } else {
+      current += (current ? ' ' : '') + line.trim()
+    }
+  }
+  if (current.trim()) paragraphs.push(current.trim())
+
+  for (const para of paragraphs) {
+    paras.push(p(r(para, { sz: 22 }), { spAfter: 160 }))
+  }
+
+  const documentXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+  xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+  <w:body>
+    ${paras.join('\n    ')}
+    <w:sectPr>
+      <w:pgMar w:top="1080" w:right="1080" w:bottom="1080" w:left="1080"/>
+    </w:sectPr>
+  </w:body>
+</w:document>`
+
+  const contentTypes = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+</Types>`
+
+  const rels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
+</Relationships>`
+
+  const zip = new JSZip()
+  zip.file('[Content_Types].xml', contentTypes)
+  zip.file('_rels/.rels', rels)
+  zip.file('word/document.xml', documentXml)
+  zip.file('word/_rels/document.xml.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"></Relationships>`)
+
+  const blob = await zip.generateAsync({ type: 'blob', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' })
+  downloadBlob(blob, `${fileName}_cover_letter.docx`)
+}
+
+// ─── Cover Letter PDF Export ────────────────────────────────────────────────
+
+export function exportCoverLetterPdf(text: string, fileName: string, header?: { name: string; contact: string }): void {
+  const doc = new jsPDF({ unit: 'pt', format: 'letter' })
+  const ml = 72, mr = 72
+  const pageWidth = 612
+  const pageHeight = 792
+  const contentWidth = pageWidth - ml - mr
+  let y = 64
+
+  // Strip header lines from cover letter text to avoid duplication
+  let bodyLines = text.split('\n')
+  if (header) {
+    let skip = 0
+    for (let i = 0; i < Math.min(5, bodyLines.length); i++) {
+      const l = bodyLines[i].trim()
+      if (l === '' || l === header.name.trim() || header.contact.split('|').some(part => l.includes(part.trim()))) {
+        skip = i + 1
+      } else break
+    }
+    bodyLines = bodyLines.slice(skip)
+  }
+
+  // Header: centered name + contact + divider line
   if (header) {
     doc.setFont('helvetica', 'bold')
-    doc.setFontSize(16.5)
+    doc.setFontSize(16)
     doc.text(header.name, pageWidth / 2, y, { align: 'center' })
-    y += 18
+    y += 20
 
     doc.setFont('helvetica', 'normal')
     doc.setFontSize(10)
-    doc.setTextColor(100)
+    doc.setTextColor(80)
     doc.text(header.contact, pageWidth / 2, y, { align: 'center' })
-    y += 14
+    y += 16
 
-    // Dividing line
-    doc.setDrawColor(30)
-    doc.setLineWidth(0.5)
+    doc.setDrawColor(40)
+    doc.setLineWidth(0.6)
     doc.line(ml, y, pageWidth - mr, y)
-    y += 18
+    y += 24
     doc.setTextColor(0)
   }
 
-  // Body
+  // Body — 11pt, 1.4× line height, extra space between paragraphs
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(11)
+  const lineH = 16
+  const paraGap = 10
 
+  // Group into paragraphs (split on blank lines)
+  const paragraphs: string[] = []
+  let current = ''
   for (const line of bodyLines) {
-    if (y > pageHeight - 60) { doc.addPage(); y = 60 }
-    if (line.trim() === '') { y += 7; continue }
-    const wrapped = doc.splitTextToSize(line, contentWidth)
-    for (const wl of wrapped) {
-      if (y > pageHeight - 60) { doc.addPage(); y = 60 }
-      doc.text(wl, ml, y)
-      y += 15
+    if (line.trim() === '') {
+      if (current.trim()) { paragraphs.push(current.trim()); current = '' }
+    } else {
+      current += (current ? ' ' : '') + line.trim()
     }
+  }
+  if (current.trim()) paragraphs.push(current.trim())
+
+  for (const para of paragraphs) {
+    const wrapped = doc.splitTextToSize(para, contentWidth)
+    const needed = wrapped.length * lineH + paraGap
+    if (y + needed > pageHeight - 60) { doc.addPage(); y = 64 }
+    for (const wl of wrapped) {
+      doc.text(wl, ml, y)
+      y += lineH
+    }
+    y += paraGap
   }
 
   doc.save(`${fileName}_cover_letter.pdf`)

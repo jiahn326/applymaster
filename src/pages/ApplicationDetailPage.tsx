@@ -18,6 +18,10 @@ async function lazyExportCoverLetterPdf(...args: Parameters<typeof import('../li
   const { exportCoverLetterPdf } = await import('../lib/exportResume')
   return exportCoverLetterPdf(...args)
 }
+async function lazyExportCoverLetterDocx(...args: Parameters<typeof import('../lib/exportResume').exportCoverLetterDocx>) {
+  const { exportCoverLetterDocx } = await import('../lib/exportResume')
+  return exportCoverLetterDocx(...args)
+}
 import { tailorResume } from '../lib/tailorResume'
 import { generateCoverLetter } from '../lib/generateCoverLetter'
 import ResumeChangesView from '../components/ResumeChangesView'
@@ -440,16 +444,10 @@ export default function ApplicationDetailPage() {
                     <pre className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed font-sans bg-gray-50 rounded-xl p-4 border border-gray-100">
                       {coverLetter}
                     </pre>
-                    <div className="flex gap-2">
-                      <button onClick={() => lazyExportCoverLetterPdf(coverLetter!, fileName, structure?.header)}
-                        className="flex-1 bg-gray-50 border border-gray-200 text-gray-700 font-medium py-2.5 rounded-xl hover:bg-gray-100 transition-all text-sm">
-                        ↓ PDF
-                      </button>
-                      <button onClick={handleGenerateCoverLetter} disabled={generatingCL || !app.job_description}
-                        className="flex-1 bg-gray-50 border border-gray-200 text-gray-500 font-medium py-2.5 rounded-xl hover:bg-gray-100 transition-all text-sm disabled:opacity-40">
-                        {generatingCL ? '✨ Regenerating...' : '↺ Regenerate'}
-                      </button>
-                    </div>
+                    <button onClick={handleGenerateCoverLetter} disabled={generatingCL || !app.job_description}
+                      className="w-full bg-gray-50 border border-gray-200 text-gray-500 font-medium py-2.5 rounded-xl hover:bg-gray-100 transition-all text-sm disabled:opacity-40">
+                      {generatingCL ? '✨ Regenerating...' : '↺ Regenerate'}
+                    </button>
                   </>
                 ) : generatingCL ? (
                   <div className="flex flex-col items-center justify-center py-10 gap-3">
