@@ -54,6 +54,9 @@ export default function ApplicationDetailPage() {
   const [editingMeta, setEditingMeta] = useState(false)
   const [editCompany, setEditCompany] = useState('')
   const [editRole, setEditRole] = useState('')
+  const [editingUrl, setEditingUrl] = useState(false)
+  const [urlValue, setUrlValue] = useState('')
+  const [urlError, setUrlError] = useState<string | null>(null)
 
   function showToast(msg: string) {
     setToast(msg)
@@ -84,11 +87,11 @@ export default function ApplicationDetailPage() {
 
   // Warn on browser close/refresh when editing
   useEffect(() => {
-    const unsaved = editingMeta || editingNotes
+    const unsaved = editingMeta || editingNotes || editingUrl
     const handler = (e: BeforeUnloadEvent) => { if (unsaved) { e.preventDefault(); e.returnValue = '' } }
     window.addEventListener('beforeunload', handler)
     return () => window.removeEventListener('beforeunload', handler)
-  }, [editingMeta, editingNotes])
+  }, [editingMeta, editingNotes, editingUrl])
 
   // Slow warning for long-running API calls
   useEffect(() => {
@@ -141,6 +144,27 @@ export default function ApplicationDetailPage() {
     setApp({ ...app, notes: notesValue })
     setEditingNotes(false)
     await supabase.from('applications').update({ notes: notesValue }).eq('id', id)
+  }
+
+  // Only http(s) links are saved, so the posting links can never be javascript: URLs
+  async function saveUrl() {
+    if (!app) return
+    const raw = urlValue.trim()
+    let next: string | null = null
+    if (raw) {
+      try {
+        const u = new URL(/^[a-z][a-z0-9+.-]*:/i.test(raw) ? raw : `https://${raw}`)
+        if (u.protocol !== 'http:' && u.protocol !== 'https:') throw new Error()
+        next = u.toString()
+      } catch {
+        setUrlError('Enter a valid http(s) link')
+        return
+      }
+    }
+    setApp({ ...app, job_url: next })
+    setEditingUrl(false)
+    setUrlError(null)
+    await supabase.from('applications').update({ job_url: next }).eq('id', id)
   }
 
   async function saveMeta() {
@@ -263,7 +287,7 @@ export default function ApplicationDetailPage() {
       <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
         <div className="max-w-6xl mx-auto px-6 h-14 flex items-center gap-4">
           <button onClick={() => {
-            if ((editingMeta || editingNotes) && !confirm('Unsaved changes will be lost. Leave anyway?')) return
+            if ((editingMeta || editingNotes || editingUrl) && !confirm('Unsaved changes will be lost. Leave anyway?')) return
             navigate('/dashboard')
           }} className="text-gray-400 hover:text-gray-700 transition-colors text-lg">←</button>
           {editingMeta ? (
@@ -289,7 +313,7 @@ export default function ApplicationDetailPage() {
           )}
           <div className="flex items-center gap-3 shrink-0">
             {app.job_url && (
-              <a href={app.job_url} target="_blank" rel="noreferrer" className="text-blue-500 text-xs hover:underline font-medium">View JD ↗</a>
+              <a href={app.job_url} target="_blank" rel="noreferrer" className="text-blue-500 text-xs hover:underline font-medium">View posting ↗</a>
             )}
             <button onClick={handleDelete} className="text-xs text-gray-400 hover:text-red-500 font-medium transition-colors">Delete</button>
           </div>
@@ -371,8 +395,35 @@ export default function ApplicationDetailPage() {
           )
         })()}
 
-        {/* Notes */}
+        {/* Job posting link + Notes */}
         <div className="bg-white rounded-2xl border border-gray-200 px-5 py-4 shadow-sm">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Job posting URL</p>
+            {!editingUrl && (
+              <button onClick={() => { setUrlValue(app.job_url ?? ''); setUrlError(null); setEditingUrl(true) }}
+                className="text-xs text-gray-400 hover:text-gray-600 transition-colors">{app.job_url ? 'Edit' : 'Add'}</button>
+            )}
+          </div>
+          {editingUrl ? (
+            <div className="space-y-2">
+              <input autoFocus value={urlValue} onChange={e => { setUrlValue(e.target.value); setUrlError(null) }}
+                onKeyDown={e => { if (e.key === 'Enter') saveUrl(); if (e.key === 'Escape') { setEditingUrl(false); setUrlError(null) } }}
+                placeholder="https://… job posting URL"
+                className={`w-full text-sm border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gray-900 ${urlError ? 'border-red-300' : 'border-gray-200'}`} />
+              {urlError && <p className="text-xs text-red-500">{urlError}</p>}
+              <div className="flex gap-2">
+                <button onClick={saveUrl} className="text-xs font-semibold text-white bg-gray-900 hover:bg-gray-700 px-3 py-1.5 rounded-lg transition-colors">Save</button>
+                <button onClick={() => { setEditingUrl(false); setUrlError(null) }} className="text-xs text-gray-500 hover:text-gray-700 px-2 py-1.5 rounded-lg">Cancel</button>
+              </div>
+            </div>
+          ) : app.job_url ? (
+            <a href={app.job_url} target="_blank" rel="noreferrer" className="block text-sm text-blue-600 hover:underline truncate">{app.job_url} ↗</a>
+          ) : (
+            <p className="text-sm text-gray-400 italic">No link</p>
+          )}
+
+          <div className="border-t border-gray-100 my-4" />
+
           <div className="flex items-center justify-between mb-2">
             <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Notes</p>
             {!editingNotes && (
