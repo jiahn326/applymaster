@@ -15,6 +15,6 @@ export interface ResumeStructure {
   projects: { name: string; tech: string; dates?: string; bullets: string[] }[]
 }
 
-export async function parseResumeStructure(rawText: string): Promise<ResumeStructure> {
-  return api.parseResumeStructure(rawText)
+export async function parseResumeStructure(rawText: string, signal?: AbortSignal): Promise<ResumeStructure> {
+  return api.parseResumeStructure(rawText, signal)
 }

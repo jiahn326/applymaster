@@ -1,8 +1,10 @@
 import { supabase } from './supabase'
 
-async function callProxy(action: string, payload: Record<string, unknown>) {
+// Every call takes an optional AbortSignal so the UI can cancel a slow request.
+async function callProxy(action: string, payload: Record<string, unknown>, signal?: AbortSignal) {
   const { data, error } = await supabase.functions.invoke('claude-proxy', {
     body: { action, payload },
+    signal,
   })
   if (error) throw new Error(error.message)
   if (data?.error) throw new Error(data.error)
@@ -10,26 +12,26 @@ async function callProxy(action: string, payload: Record<string, unknown>) {
 }
 
 export const api = {
-  tailorResume: (resumeRawText: string, jobDescription: string) =>
-    callProxy('tailorResume', { resumeRawText, jobDescription }),
+  tailorResume: (resumeRawText: string, jobDescription: string, signal?: AbortSignal) =>
+    callProxy('tailorResume', { resumeRawText, jobDescription }, signal),
 
-  analyzeJobFit: (resumeRawText: string, jobDescription: string, currentLocation?: string) =>
-    callProxy('analyzeJobFit', { resumeRawText, jobDescription, currentLocation }),
+  analyzeJobFit: (resumeRawText: string, jobDescription: string, currentLocation?: string, signal?: AbortSignal) =>
+    callProxy('analyzeJobFit', { resumeRawText, jobDescription, currentLocation }, signal),
 
-  generateCoverLetter: (company: string, role: string, jobDescription: string, header?: { name: string; contact: string }, template?: string) => {
+  generateCoverLetter: (company: string, role: string, jobDescription: string, header?: { name: string; contact: string }, template?: string, signal?: AbortSignal) => {
     const today = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
-    return callProxy('generateCoverLetter', { company, role, jobDescription, header, today, template }).then(d => d.text as string)
+    return callProxy('generateCoverLetter', { company, role, jobDescription, header, today, template }, signal).then(d => d.text as string)
   },
 
-  extractJobInfo: (content: string) =>
-    callProxy('extractJobInfo', { content }),
+  extractJobInfo: (content: string, signal?: AbortSignal) =>
+    callProxy('extractJobInfo', { content }, signal),
 
-  analyzeAndExtract: (content: string, resumeRawText?: string, currentLocation?: string) =>
-    callProxy('analyzeAndExtract', { content, resumeRawText, currentLocation }),
+  analyzeAndExtract: (content: string, resumeRawText?: string, currentLocation?: string, signal?: AbortSignal) =>
+    callProxy('analyzeAndExtract', { content, resumeRawText, currentLocation }, signal),
 
-  parseResumeStructure: (rawText: string) =>
-    callProxy('parseResumeStructure', { rawText }),
+  parseResumeStructure: (rawText: string, signal?: AbortSignal) =>
+    callProxy('parseResumeStructure', { rawText }, signal),
 
-  generateWhyCompany: (company: string, role: string, jobDescription: string, resumeRawText?: string, length?: 'short' | 'medium' | 'long') =>
-    callProxy('generateWhyCompany', { company, role, jobDescription, resumeRawText, length }).then(d => d.text as string),
+  generateWhyCompany: (company: string, role: string, jobDescription: string, resumeRawText?: string, length?: 'short' | 'medium' | 'long', signal?: AbortSignal) =>
+    callProxy('generateWhyCompany', { company, role, jobDescription, resumeRawText, length }, signal).then(d => d.text as string),
 }

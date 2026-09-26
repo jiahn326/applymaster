@@ -5,6 +5,7 @@ import { extractTextFromDocx } from '../lib/parseDocx'
 import { parseResumeStructure } from '../lib/parseResumeStructure'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
+import { useAbortable } from '../hooks/useAbortable'
 
 type UploadStatus = 'idle' | 'parsing' | 'structuring' | 'saving' | 'done' | 'error'
 
@@ -135,6 +136,7 @@ const STATUS_MESSAGES: Record<UploadStatus, string> = {
 }
 
 export default function UploadResumePage() {
+  const uploadJob = useAbortable()
   const [status, setStatus] = useState<UploadStatus>('idle')
   const [error, setError] = useState<string | null>(null)
   const [dragging, setDragging] = useState(false)
@@ -173,13 +175,16 @@ export default function UploadResumePage() {
       return
     }
 
+    const signal = uploadJob.start()
     try {
       setError(null)
       setStatus('parsing')
       const text = isPdf ? await extractTextFromPdf(file) : await extractTextFromDocx(file)
+      if (signal.aborted) return
 
       setStatus('structuring')
-      const structure = await parseResumeStructure(text)
+      const structure = await parseResumeStructure(text, signal)
+      if (signal.aborted) return
 
       setStatus('saving')
       const { data: inserted, error: insertError } = await supabase.from('resumes').insert({
@@ -193,9 +198,18 @@ export default function UploadResumePage() {
       setStatus('done')
       setTimeout(() => navigate('/dashboard'), 1200)
     } catch (err: any) {
+      if (signal.aborted) return
       setError(err.message ?? 'Something went wrong.')
       setStatus('error')
     }
+  }
+
+  // Only before saving starts — once the resume is being written, let it finish
+  function cancelUpload() {
+    uploadJob.cancel()
+    setError(null)
+    setStatus('idle')
+    if (inputRef.current) inputRef.current.value = ''
   }
 
   async function handleSetActive(id: string) {
@@ -310,6 +324,12 @@ export default function UploadResumePage() {
             <div className="flex flex-col items-center gap-3">
               <div className="w-8 h-8 border-2 border-gray-300 border-t-gray-900 rounded-full animate-spin" />
               <p className="text-gray-600 font-medium text-sm">{STATUS_MESSAGES[status]}</p>
+              {status !== 'saving' && (
+                <button onClick={(e) => { e.stopPropagation(); cancelUpload() }}
+                  className="text-xs font-medium text-gray-500 hover:text-gray-900 px-3 py-1.5 rounded-lg hover:bg-gray-100 transition-colors">
+                  Cancel
+                </button>
+              )}
             </div>
           )}
 

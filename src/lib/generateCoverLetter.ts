@@ -5,7 +5,8 @@ export async function generateCoverLetter(
   company: string,
   role: string,
   jobDescription: string,
-  header?: { name: string; contact: string }
+  header?: { name: string; contact: string },
+  signal?: AbortSignal
 ): Promise<string> {
   const { data: { user } } = await supabase.auth.getUser()
   let template: string | undefined
@@ -17,5 +18,5 @@ export async function generateCoverLetter(
       .maybeSingle()
     template = data?.cover_letter_template ?? undefined
   }
-  return api.generateCoverLetter(company, role, jobDescription, header, template)
+  return api.generateCoverLetter(company, role, jobDescription, header, template, signal)
 }

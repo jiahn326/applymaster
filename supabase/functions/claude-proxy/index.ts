@@ -56,7 +56,8 @@ Deno.serve(async (req) => {
     const missing = required.filter(k => !payload?.[k])
     if (missing.length) return json({ error: `Missing fields: ${missing.join(', ')}` }, 400, origin)
 
-    const client = new Anthropic({ apiKey: Deno.env.get('ANTHROPIC_API_KEY')! })
+    // req.signal aborts when the browser cancels, which stops the Claude request too
+    const client: Claude = { anthropic: new Anthropic({ apiKey: Deno.env.get('ANTHROPIC_API_KEY')! }), signal: req.signal }
 
     let result
     if (action === 'tailorResume')            result = await tailorResume(client, payload.resumeRawText, payload.jobDescription)
@@ -73,12 +74,14 @@ Deno.serve(async (req) => {
   }
 })
 
-async function callClaude(client: Anthropic, prompt: string, maxTokens = 16000) {
-  const message = await client.messages.create({
+type Claude = { anthropic: Anthropic; signal: AbortSignal }
+
+async function callClaude(client: Claude, prompt: string, maxTokens = 16000) {
+  const message = await client.anthropic.messages.create({
     model: 'claude-sonnet-5',
     max_tokens: maxTokens,
     messages: [{ role: 'user', content: prompt }],
-  })
+  }, { signal: client.signal })
   if (message.stop_reason === 'max_tokens') throw new Error('Claude response was truncated (max_tokens reached)')
   // Sonnet 5 runs adaptive thinking by default, so content[0] may be a thinking block
   const textBlock = message.content.find(b => b.type === 'text')
@@ -86,7 +89,7 @@ async function callClaude(client: Anthropic, prompt: string, maxTokens = 16000) 
   return raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim()
 }
 
-async function tailorResume(client: Anthropic, resumeRawText: string, jobDescription: string) {
+async function tailorResume(client: Claude, resumeRawText: string, jobDescription: string) {
   const text = await callClaude(client, `You are a resume editor for a software engineer. Your only job is to swap terminology to mirror the job description — nothing else.
 
 WHEN TO REWRITE A BULLET:
@@ -128,7 +131,7 @@ Return JSON only:
   return { ...parsed, diffs: parsed.diffs.map((d: any) => ({ ...d, accepted: true })) }
 }
 
-async function analyzeJobFit(client: Anthropic, resumeRawText: string, jobDescription: string, currentLocation?: string) {
+async function analyzeJobFit(client: Claude, resumeRawText: string, jobDescription: string, currentLocation?: string) {
   const text = await callClaude(client, `You are a career coach. Analyze how well this resume matches the job description.
 
 RESUME:
@@ -151,7 +154,7 @@ Return JSON only:
   return JSON.parse(text)
 }
 
-async function generateCoverLetter(client: Anthropic, company: string, role: string, jobDescription: string, header?: { name: string; contact: string }, today?: string, customTemplate?: string) {
+async function generateCoverLetter(client: Claude, company: string, role: string, jobDescription: string, header?: { name: string; contact: string }, today?: string, customTemplate?: string) {
   today = today ?? new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
   const headerName = header?.name ?? 'My Name'
   const headerContact = header?.contact ?? 'phone | email | linkedin'
@@ -199,7 +202,7 @@ Return only the completed letter text, no markdown.`, 8000)
   return { text }
 }
 
-async function extractJobInfo(client: Anthropic, content: string) {
+async function extractJobInfo(client: Claude, content: string) {
   const text = await callClaude(client, `Extract job information from this text.
 
 TEXT:
@@ -210,7 +213,7 @@ Return JSON only:
   return JSON.parse(text)
 }
 
-async function analyzeAndExtract(client: Anthropic, content: string, resumeRawText?: string, currentLocation?: string) {
+async function analyzeAndExtract(client: Claude, content: string, resumeRawText?: string, currentLocation?: string) {
   const hasResume = !!resumeRawText
   const text = await callClaude(client, `You are a job application assistant. From the job posting below, do two things in one pass:
 
@@ -241,7 +244,7 @@ Return JSON only:
   return JSON.parse(text)
 }
 
-async function generateWhyCompany(client: Anthropic, company: string, role: string, jobDescription: string, resumeRawText?: string, length: 'short' | 'medium' | 'long' = 'medium') {
+async function generateWhyCompany(client: Claude, company: string, role: string, jobDescription: string, resumeRawText?: string, length: 'short' | 'medium' | 'long' = 'medium') {
   const lengthGuide = {
     short: '2-3 sentences',
     medium: '1 paragraph (4-6 sentences)',
@@ -271,7 +274,7 @@ Return only the answer text, nothing else.`, 4000)
   return { text }
 }
 
-async function parseResumeStructure(client: Anthropic, rawText: string) {
+async function parseResumeStructure(client: Claude, rawText: string) {
   const text = await callClaude(client, `Parse this resume into structured JSON.
 
 Copy text exactly as written. Do not drop, merge, rename, or reorder anything.

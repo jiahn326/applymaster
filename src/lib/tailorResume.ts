@@ -17,7 +17,8 @@ export interface TailoredResume {
 
 export async function tailorResume(
   resumeRawText: string,
-  jobDescription: string
+  jobDescription: string,
+  signal?: AbortSignal
 ): Promise<TailoredResume> {
-  return api.tailorResume(resumeRawText, jobDescription)
+  return api.tailorResume(resumeRawText, jobDescription, signal)
 }

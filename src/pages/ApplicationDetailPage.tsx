@@ -14,6 +14,7 @@ async function lazyExportGoogleDocs(...args: Parameters<typeof import('../lib/ex
 import { tailorResume } from '../lib/tailorResume'
 import { generateCoverLetter } from '../lib/generateCoverLetter'
 import ResumeChangesView from '../components/ResumeChangesView'
+import { useAbortable } from '../hooks/useAbortable'
 import type { TailoredResume } from '../lib/tailorResume'
 import type { ResumeStructure } from '../lib/parseResumeStructure'
 import type { JobFitAnalysis } from '../lib/analyzeJobFit'
@@ -60,6 +61,10 @@ export default function ApplicationDetailPage() {
     setToast(msg)
     setTimeout(() => setToast(null), 4000)
   }
+  const tailorJob = useAbortable()
+  const reanalyzeJob = useAbortable()
+  const coverLetterJob = useAbortable()
+  const whyJob = useAbortable()
   const [tailoring, setTailoring] = useState(false)
   const [tailoringSlow, setTailoringSlow] = useState(false)
   const [reanalyzing, setReanalyzing] = useState(false)
@@ -156,46 +161,52 @@ export default function ApplicationDetailPage() {
 
   async function handleReanalyze() {
     if (!app?.job_description || !rawText) return
+    const signal = reanalyzeJob.start()
     setReanalyzing(true)
     try {
       const { api } = await import('../lib/api')
-      const result = await api.analyzeJobFit(rawText, app.job_description)
+      const result = await api.analyzeJobFit(rawText, app.job_description, undefined, signal)
+      if (signal.aborted) return
       await supabase.from('applications').update({ fit_analysis: result }).eq('id', id)
       setApp({ ...app, fit_analysis: result })
     } catch (err: any) {
-      alert('Analysis failed: ' + (err.message ?? 'Unknown error'))
+      if (!signal.aborted) alert('Analysis failed: ' + (err.message ?? 'Unknown error'))
     } finally {
-      setReanalyzing(false)
+      if (reanalyzeJob.isCurrent(signal)) setReanalyzing(false)
     }
   }
 
   async function handleTailor() {
     if (!app?.job_description || !rawText) return
+    const signal = tailorJob.start()
     setTailoring(true)
     try {
-      const result = await tailorResume(rawText, app.job_description)
+      const result = await tailorResume(rawText, app.job_description, signal)
+      if (signal.aborted) return
       await supabase.from('applications').update({ tailored_resume: result }).eq('id', id)
       setApp({ ...app, tailored_resume: result })
       showToast('✉️ Want to generate a cover letter too?')
     } catch (err: any) {
-      alert('Tailoring failed: ' + (err.message ?? 'Unknown error'))
+      if (!signal.aborted) alert('Tailoring failed: ' + (err.message ?? 'Unknown error'))
     } finally {
-      setTailoring(false)
+      if (tailorJob.isCurrent(signal)) setTailoring(false)
     }
   }
 
   async function handleGenerateCoverLetter() {
     if (!app?.job_description) return
+    const signal = coverLetterJob.start()
     setGeneratingCL(true)
     setCoverLetterError(null)
     try {
-      const result = await generateCoverLetter(app.company, app.role, app.job_description, structure?.header)
+      const result = await generateCoverLetter(app.company, app.role, app.job_description, structure?.header, signal)
+      if (signal.aborted) return
       setCoverLetter(result)
       await supabase.from('applications').update({ cover_letter: result }).eq('id', app.id)
     } catch (err: any) {
-      setCoverLetterError(err.message ?? 'Unknown error')
+      if (!signal.aborted) setCoverLetterError(err.message ?? 'Unknown error')
     } finally {
-      setGeneratingCL(false)
+      if (coverLetterJob.isCurrent(signal)) setGeneratingCL(false)
     }
   }
 
@@ -208,16 +219,23 @@ export default function ApplicationDetailPage() {
 
   async function handleGenerateWhy(length = whyLength) {
     if (!app?.job_description) return
+    const signal = whyJob.start()
     setGeneratingWhy(true)
     try {
       const { api } = await import('../lib/api')
-      const result = await api.generateWhyCompany(app.company, app.role, app.job_description, rawText, length)
+      const result = await api.generateWhyCompany(app.company, app.role, app.job_description, rawText, length, signal)
+      if (signal.aborted) return
       setWhyAnswer(result)
     } catch (err: any) {
-      alert('Generation failed: ' + (err.message ?? 'Unknown error'))
+      if (!signal.aborted) alert('Generation failed: ' + (err.message ?? 'Unknown error'))
     } finally {
-      setGeneratingWhy(false)
+      if (whyJob.isCurrent(signal)) setGeneratingWhy(false)
     }
+  }
+
+  function cancelJob(job: ReturnType<typeof useAbortable>, setBusy: (v: boolean) => void) {
+    job.cancel()
+    setBusy(false)
   }
 
   function handleTabClick(t: 'resume' | 'cover' | 'why') {
@@ -304,10 +322,15 @@ export default function ApplicationDetailPage() {
         {!app.fit_analysis && app.job_description && (
           <div className="bg-gray-50 border border-gray-200 rounded-2xl px-5 py-4 flex items-center justify-between gap-4">
             <p className="text-sm text-gray-500">No fit analysis yet.</p>
-            <button onClick={handleReanalyze} disabled={reanalyzing || !rawText}
-              className="shrink-0 text-xs font-semibold bg-gray-900 hover:bg-gray-700 disabled:opacity-40 text-white px-3 py-1.5 rounded-lg transition-colors">
-              {reanalyzing ? '✨ Analyzing...' : '✨ Analyze Fit'}
-            </button>
+            <div className="flex items-center gap-1 shrink-0">
+              {reanalyzing && (
+                <button onClick={() => cancelJob(reanalyzeJob, setReanalyzing)} className="shrink-0 text-xs font-medium text-gray-500 hover:text-gray-900 px-3 py-1.5 rounded-lg hover:bg-gray-100 transition-colors">Cancel</button>
+              )}
+              <button onClick={handleReanalyze} disabled={reanalyzing || !rawText}
+                className="shrink-0 text-xs font-semibold bg-gray-900 hover:bg-gray-700 disabled:opacity-40 text-white px-3 py-1.5 rounded-lg transition-colors">
+                {reanalyzing ? '✨ Analyzing...' : '✨ Analyze Fit'}
+              </button>
+            </div>
           </div>
         )}
         {app.fit_analysis && (() => {
@@ -454,16 +477,25 @@ export default function ApplicationDetailPage() {
                     <pre className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed font-sans bg-gray-50 rounded-xl p-4 border border-gray-100">
                       {coverLetter}
                     </pre>
-                    <button onClick={handleGenerateCoverLetter} disabled={generatingCL || !app.job_description}
-                      className="w-full bg-gray-50 border border-gray-200 text-gray-500 font-medium py-2.5 rounded-xl hover:bg-gray-100 transition-all text-sm disabled:opacity-40">
-                      {generatingCL ? '✨ Regenerating...' : '↺ Regenerate'}
-                    </button>
+                    <div className="flex gap-2">
+                      <button onClick={handleGenerateCoverLetter} disabled={generatingCL || !app.job_description}
+                        className="flex-1 bg-gray-50 border border-gray-200 text-gray-500 font-medium py-2.5 rounded-xl hover:bg-gray-100 transition-all text-sm disabled:opacity-40">
+                        {generatingCL ? '✨ Regenerating...' : '↺ Regenerate'}
+                      </button>
+                      {generatingCL && (
+                        <button onClick={() => cancelJob(coverLetterJob, setGeneratingCL)}
+                          className="bg-white border border-gray-200 text-gray-600 font-medium px-4 py-2.5 rounded-xl hover:bg-gray-100 transition-all text-sm">
+                          Cancel
+                        </button>
+                      )}
+                    </div>
                   </>
                 ) : generatingCL ? (
                   <div className="flex flex-col items-center justify-center py-10 gap-3">
                     <div className="w-6 h-6 border-2 border-gray-300 border-t-gray-900 rounded-full animate-spin" />
                     <p className="text-sm text-gray-400">Generating cover letter...</p>
                     {generatingCLSlow && <p className="text-amber-500 text-xs">Taking longer than usual — hang tight</p>}
+                    <button onClick={() => cancelJob(coverLetterJob, setGeneratingCL)} className="shrink-0 text-xs font-medium text-gray-500 hover:text-gray-900 px-3 py-1.5 rounded-lg hover:bg-gray-100 transition-colors">Cancel</button>
                   </div>
                 ) : coverLetterError ? (
                   <div className="flex flex-col items-center justify-center py-10 gap-3">
@@ -512,6 +544,12 @@ export default function ApplicationDetailPage() {
                         className="flex-1 bg-gray-50 border border-gray-200 text-gray-500 font-medium py-2.5 rounded-xl hover:bg-gray-100 transition-all text-sm disabled:opacity-40">
                         {generatingWhy ? '✨ Regenerating...' : '↺ Regenerate'}
                       </button>
+                      {generatingWhy && (
+                        <button onClick={() => cancelJob(whyJob, setGeneratingWhy)}
+                          className="bg-white border border-gray-200 text-gray-600 font-medium px-4 py-2.5 rounded-xl hover:bg-gray-100 transition-all text-sm">
+                          Cancel
+                        </button>
+                      )}
                     </div>
                   </>
                 ) : generatingWhy ? (
@@ -519,6 +557,7 @@ export default function ApplicationDetailPage() {
                     <div className="w-6 h-6 border-2 border-gray-300 border-t-gray-900 rounded-full animate-spin" />
                     <p className="text-sm text-gray-400">Writing your answer...</p>
                     {generatingWhySlow && <p className="text-amber-500 text-xs">Taking longer than usual — hang tight</p>}
+                    <button onClick={() => cancelJob(whyJob, setGeneratingWhy)} className="shrink-0 text-xs font-medium text-gray-500 hover:text-gray-900 px-3 py-1.5 rounded-lg hover:bg-gray-100 transition-colors">Cancel</button>
                   </div>
                 ) : (
                   <button onClick={() => handleGenerateWhy()} disabled={!app.job_description}
@@ -555,6 +594,10 @@ export default function ApplicationDetailPage() {
               <p className="text-gray-400 text-sm mt-1">Claude is rewriting your bullets to match the JD...</p>
               {tailoringSlow && <p className="text-amber-500 text-xs mt-2">Taking longer than usual — hang tight</p>}
             </div>
+            <button onClick={() => cancelJob(tailorJob, setTailoring)}
+              className="w-full border border-gray-200 text-gray-600 font-medium py-2 rounded-xl hover:bg-gray-50 transition-colors text-sm">
+              Cancel
+            </button>
           </div>
         </div>
       )}

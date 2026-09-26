@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
 import { api } from '../lib/api'
+import { useAbortable } from '../hooks/useAbortable'
 import type { JobFitAnalysis } from '../lib/analyzeJobFit'
 import { VERDICT_CONFIG, CATEGORY_COLOR } from '../lib/fitConfig'
 
@@ -39,6 +40,9 @@ export default function NewApplicationPanel({ onSaved, onClose }: Props) {
   const [analyzeStep, setAnalyzeStep] = useState<'fetching' | 'analyzing' | 'checking'>('fetching')
   const [duplicate, setDuplicate] = useState<{ id: string; company: string; role: string; created_at: string; status: string } | null>(null)
   const pasteRef = useRef<HTMLTextAreaElement>(null)
+  const analyzeJob = useAbortable()
+  const tailorJob = useAbortable({ abortOnUnmount: false }) // keeps tailoring if the panel is closed
+  const savedAppRef = useRef<any>(null)
 
   useEffect(() => {
     pasteRef.current?.focus()
@@ -46,6 +50,7 @@ export default function NewApplicationPanel({ onSaved, onClose }: Props) {
 
   async function handlePaste(text: string) {
     if (!text.trim()) return
+    const signal = analyzeJob.start()
     setStep('analyzing')
 
     const timeout = new Promise<never>((_, reject) =>
@@ -68,7 +73,7 @@ export default function NewApplicationPanel({ onSaved, onClose }: Props) {
       const [content, settingsData, resumesData] = await Promise.race([
         Promise.all([
           isUrl
-            ? fetch(`https://r.jina.ai/${trimmed}`, { headers: { 'Accept': 'text/plain' } })
+            ? fetch(`https://r.jina.ai/${trimmed}`, { headers: { 'Accept': 'text/plain' }, signal })
                 .then(r => r.ok ? r.text() : trimmed)
                 .catch(() => trimmed)
             : Promise.resolve(trimmed),
@@ -78,6 +83,7 @@ export default function NewApplicationPanel({ onSaved, onClose }: Props) {
         timeout,
       ])
 
+      if (signal.aborted) return
       const activeId = (settingsData as any)?.data?.active_resume_id
       const resumeList = (resumesData as any)?.data ?? []
       const activeResume = resumeList.find((r: any) => r.id === activeId) ?? resumeList[0]
@@ -87,9 +93,10 @@ export default function NewApplicationPanel({ onSaved, onClose }: Props) {
 
       setAnalyzeStep('analyzing')
       const result = await Promise.race([
-        api.analyzeAndExtract(content, rawText, currentLocation),
+        api.analyzeAndExtract(content, rawText, currentLocation, signal),
         timeout,
       ])
+      if (signal.aborted) return
 
       const info = result.jobInfo
       const fit = result.fitAnalysis
@@ -115,15 +122,30 @@ export default function NewApplicationPanel({ onSaved, onClose }: Props) {
       if (dupeQueries.length > 0) {
         setAnalyzeStep('checking')
         const dupeResults = await Promise.all(dupeQueries)
+        if (signal.aborted) return
         const match = dupeResults.find(r => r.data && r.data.length > 0)
         setDuplicate(match?.data?.[0] ?? null)
       }
 
       setStep('analysis')
     } catch (err: any) {
+      if (signal.aborted) return
       setStep('paste')
       setError(err.message ?? 'Failed to analyze. Try pasting the job description text instead.')
     }
+  }
+
+  function cancelAnalyze() {
+    analyzeJob.cancel()
+    setError(null)
+    setStep('paste')
+  }
+
+  // The application is already saved at this point — skipping only drops the auto-tailor
+  function skipTailoring() {
+    tailorJob.cancel()
+    setTailoring(false)
+    if (savedAppRef.current) onSaved(savedAppRef.current)
   }
 
   async function handleAutoSave() {
@@ -149,14 +171,17 @@ export default function NewApplicationPanel({ onSaved, onClose }: Props) {
 
       // Auto-tailor in background
       if (resumeRawText && jobDescription) {
+        savedAppRef.current = data
+        const signal = tailorJob.start()
         setTailoring(true)
         try {
           const { tailorResume } = await import('../lib/tailorResume')
-          const tailored = await tailorResume(resumeRawText, jobDescription)
+          const tailored = await tailorResume(resumeRawText, jobDescription, signal)
+          if (signal.aborted) return
           await supabase.from('applications').update({ tailored_resume: tailored }).eq('id', data.id)
           onSaved({ ...data, tailored_resume: tailored })
         } catch {
-          onSaved(data)
+          if (!signal.aborted) onSaved(data)
         }
       } else {
         onSaved(data)
@@ -260,6 +285,10 @@ export default function NewApplicationPanel({ onSaved, onClose }: Props) {
                     )
                   })}
                 </div>
+                <button onClick={cancelAnalyze}
+                  className="text-xs font-medium text-gray-500 hover:text-gray-900 px-3 py-1.5 rounded-lg hover:bg-gray-100 transition-colors">
+                  Cancel
+                </button>
               </div>
             )}
 
@@ -400,6 +429,12 @@ export default function NewApplicationPanel({ onSaved, onClose }: Props) {
           >
             {saving ? 'Saving...' : tailoring ? '✨ Tailoring resume...' : analysis?.verdict === 'Skip' ? 'Apply anyway →' : "Yes, I'll apply! →"}
           </button>
+          {tailoring && (
+            <button onClick={skipTailoring}
+              className="w-full border border-gray-200 text-gray-600 hover:bg-gray-50 font-medium py-2 rounded-xl transition-colors text-sm">
+              Skip tailoring (application is saved)
+            </button>
+          )}
           <button
             onClick={() => { setPasteText(''); setDuplicate(null); setStep('paste') }}
             className="w-full text-gray-500 hover:text-gray-800 font-medium py-2 rounded-xl transition-colors text-sm"
