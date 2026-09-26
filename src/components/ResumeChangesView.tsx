@@ -2,6 +2,7 @@ import { useState, useRef } from 'react'
 import type { TailoredResume } from '../lib/tailorResume'
 import type { ResumeStructure } from '../lib/parseResumeStructure'
 import { applyTailoring, skillGroups, sectionTitle, labeledLine } from '../lib/resumeUtils'
+import { wordDiff } from '../lib/wordDiff'
 
 interface Props {
   tailored: TailoredResume
@@ -12,9 +13,9 @@ interface Props {
 
 // ─── Resume section renderer ──────────────────────────────────────────────────
 
-function ResumeSection({ title, children, highlighted = false }: { title: string; children: React.ReactNode; highlighted?: boolean }) {
+function ResumeSection({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className={`mb-4 ${highlighted ? 'bg-emerald-50 rounded-lg p-3 -mx-3' : ''}`}>
+    <div className="mb-4">
       <div className="text-center border-b border-gray-900 mb-2">
         <span className="text-xs font-bold text-gray-900 uppercase tracking-wider">{title}</span>
       </div>
@@ -38,10 +39,37 @@ function CopyButton({ text, copyKey, copiedKey, onCopy }: { text: string; copyKe
   )
 }
 
-function ResumePreview({ structure, rawText, changedSections = [], copyable = false, copiedKey, onCopy, scrollRef, onScroll }: {
+// A bullet that differs from its counterpart on the other side gets a colored rule on
+// the left and only the changed words highlighted: removed words on the original side,
+// added words on the tailored side.
+function Bullet({ text, counterpart, side }: { text: string; counterpart?: string; side: 'original' | 'tailored' }) {
+  if (counterpart === undefined || counterpart === text) {
+    return <div className="pl-2 border-l-2 border-transparent text-gray-700">● {text}</div>
+  }
+  const parts = side === 'original' ? wordDiff(text, counterpart) : wordDiff(counterpart, text)
+  const shown = side === 'original' ? 'removed' : 'added'
+  return (
+    <div className={`pl-2 border-l-2 text-gray-700 ${side === 'original' ? 'border-red-300' : 'border-emerald-500'}`}>
+      ●{' '}
+      {parts.filter(p => p.type === 'same' || p.type === shown).map((p, i) => (
+        <span key={i}>
+          {i > 0 && ' '}
+          {p.type === 'same'
+            ? p.text
+            : side === 'original'
+              ? <span className="bg-red-50 text-red-700 line-through decoration-red-300 rounded-sm px-0.5">{p.text}</span>
+              : <span className="bg-emerald-100 text-emerald-900 font-medium rounded-sm px-0.5">{p.text}</span>}
+        </span>
+      ))}
+    </div>
+  )
+}
+
+function ResumePreview({ structure, compareTo, side, rawText, copyable = false, copiedKey, onCopy, scrollRef, onScroll }: {
   structure: ResumeStructure
+  compareTo: ResumeStructure
+  side: 'original' | 'tailored'
   rawText?: string
-  changedSections?: string[]
   copyable?: boolean
   copiedKey?: string | null
   onCopy?: (text: string, key: string) => void
@@ -85,18 +113,17 @@ function ResumePreview({ structure, rawText, changedSections = [], copyable = fa
       {/* Experience — grouped by company */}
       <ResumeSection title={sectionTitle(structure, 'experience', rawText)}>
         {(() => {
-          const groups: { company: string; location: string; isChanged: boolean; roles: { title: string; dates: string; bullets: string[]; expIdx: number }[] }[] = []
+          const groups: { company: string; location: string; roles: { title: string; dates: string; bullets: string[]; expIdx: number }[] }[] = []
           structure.experience.forEach((exp, i) => {
             const last = groups[groups.length - 1]
             if (last && last.company === exp.company) {
               last.roles.push({ title: exp.title, dates: exp.dates, bullets: exp.bullets, expIdx: i })
-              if (changedSections.includes(exp.company)) last.isChanged = true
             } else {
-              groups.push({ company: exp.company, location: exp.location, isChanged: changedSections.includes(exp.company), roles: [{ title: exp.title, dates: exp.dates, bullets: exp.bullets, expIdx: i }] })
+              groups.push({ company: exp.company, location: exp.location, roles: [{ title: exp.title, dates: exp.dates, bullets: exp.bullets, expIdx: i }] })
             }
           })
           return groups.map((group, gi) => (
-            <div key={gi} className={`mb-3 ${group.isChanged ? 'bg-emerald-50 rounded p-2 -mx-2' : ''}`}>
+            <div key={gi} className="mb-3">
               <div className="flex justify-between"><span className="font-bold">{group.company}</span><span className="font-bold">{group.location}</span></div>
               {group.roles.map((role, ri) => (
                 <div key={ri} className="flex justify-between text-gray-600">
@@ -106,7 +133,7 @@ function ResumePreview({ structure, rawText, changedSections = [], copyable = fa
               {group.roles.map((role, ri) => (
                 <div key={ri} className="group relative">
                   {role.bullets.map((b, j) => (
-                    <div key={j} className="pl-2 text-gray-700">● {b}</div>
+                    <Bullet key={j} text={b} counterpart={compareTo.experience[role.expIdx]?.bullets[j]} side={side} />
                   ))}
                   {copyable && onCopy && (
                     <div className="absolute top-0 right-0">
@@ -123,16 +150,15 @@ function ResumePreview({ structure, rawText, changedSections = [], copyable = fa
       {/* Projects */}
       <ResumeSection title={sectionTitle(structure, 'projects', rawText)}>
         {structure.projects.map((proj, i) => {
-          const isChanged = changedSections.includes(proj.name)
           return (
-            <div key={i} className={`mb-3 ${isChanged ? 'bg-emerald-50 rounded p-2 -mx-2' : ''}`}>
+            <div key={i} className="mb-3">
               <div className="flex justify-between">
                 <span><span className="font-bold">{proj.name}</span>{proj.tech && <span className="text-gray-600"> ({proj.tech})</span>}</span>
                 {proj.dates && <span className="text-gray-600 italic">{proj.dates}</span>}
               </div>
               <div className="group relative">
                 {proj.bullets.map((b, j) => (
-                  <div key={j} className="pl-2 text-gray-700">● {b}</div>
+                  <Bullet key={j} text={b} counterpart={compareTo.projects[i]?.bullets[j]} side={side} />
                 ))}
                 {copyable && onCopy && (
                   <div className="absolute top-0 right-0">
@@ -172,37 +198,25 @@ export default function ResumeChangesView({ tailored, structure, rawText }: Prop
   }
 
   const tailoredStructure = applyTailoring(structure, tailored)
-  const acceptedDiffs = tailored.diffs.filter(d => d.accepted)
-
-  const experienceDiffs = acceptedDiffs.filter(d =>
-    structure.experience.some(e => e.company === d.section || e.title === d.section)
-  )
-  const projectDiffs = acceptedDiffs.filter(d =>
-    structure.projects.some(p => p.name === d.section || p.name.startsWith(d.section))
-  )
-
-  const changedSections = [
-    ...experienceDiffs.map(d => d.section),
-    ...projectDiffs.map(d => d.section),
-  ]
 
   return (
     <div className="space-y-3">
       <div className="bg-gray-50 rounded-xl px-4 py-3 text-xs text-gray-500 leading-relaxed">
-        Highlighted sections were rewritten to better match the job description. Copy any bullet you want to use, or export the full tailored resume below.
+        Only the words that changed are highlighted: <span className="bg-red-50 text-red-700 line-through decoration-red-300 rounded-sm px-0.5">removed</span> on the left, <span className="bg-emerald-100 text-emerald-900 font-medium rounded-sm px-0.5">added</span> on the right. Copy any bullet you want to use, or export the full tailored resume below.
       </div>
       {/* Split preview */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <p className="text-xs font-semibold text-gray-400 text-center mb-2">Original</p>
-          <ResumePreview structure={structure} rawText={rawText} scrollRef={leftRef} onScroll={() => syncScroll('left')} />
+          <ResumePreview structure={structure} compareTo={tailoredStructure} side="original" rawText={rawText} scrollRef={leftRef} onScroll={() => syncScroll('left')} />
         </div>
         <div>
           <p className="text-xs font-semibold text-emerald-600 text-center mb-2">Tailored</p>
           <ResumePreview
             structure={tailoredStructure}
+            compareTo={structure}
+            side="tailored"
             rawText={rawText}
-            changedSections={changedSections}
             copyable
             copiedKey={copiedKey}
             onCopy={copyWithFeedback}
