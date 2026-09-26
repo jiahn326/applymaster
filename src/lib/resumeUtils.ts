@@ -73,3 +73,16 @@ export function labeledLine(label: string, value: string): { label: string; text
   while (prefix.test(text)) text = text.replace(prefix, '')
   return { label: clean, text }
 }
+
+// Download name recruiters see, e.g. "Jane_Doe_Resume". No company name, so the same
+// file can't reveal (or mislabel) where else you're applying. Characters that are
+// invalid in file names are dropped; falls back to "Resume" when there's no name.
+export function resumeFileName(name?: string): string {
+  const base = [...(name ?? '')]
+    .map(c => (c < ' ' ? ' ' : c))
+    .filter(c => !'\\/:*?"<>|'.includes(c))
+    .join('')
+    .trim()
+    .replace(/\s+/g, '_')
+  return base ? `${base}_Resume` : 'Resume'
+}

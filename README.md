@@ -2,7 +2,7 @@
 
 **AI-powered resume tailoring for every job you apply to.**
 
-ApplyMaster takes your resume and a job description, then uses the Claude API to suggest focused, bullet-level edits that match the role, without inventing experience you don't have. You review every change side by side, then export the tailored resume as a PDF or as a file you can open in Google Docs.
+ApplyMaster takes your resume and a job description, then uses the Claude API to suggest focused, bullet-level edits that match the role, without inventing experience you don't have. You review every change side by side, then export the tailored resume as a PDF.
 
 **Live app:** [applymaster.vercel.app](https://applymaster.vercel.app)
 
@@ -22,7 +22,7 @@ Tailoring a resume for each application is slow, and generic AI rewriting tools 
 - **Job fit analysis:** Paste a job URL or description to extract the company, role, and description, and see how well you fit. Each category (skills, experience, location) lists specific gaps, marked required or preferred, and matches.
 - **Cover letters and "Why this company" answers:** Generates drafts from the job description, using a cover letter template you can edit in Settings.
 - **Cancelable AI actions:** Any AI request (tailoring, analysis, generation, resume parsing) can be canceled while it runs.
-- **Export:** PDF with an embedded Lato font, and an HTML file you can upload to Google Drive and open with Google Docs.
+- **PDF export:** Embedded Lato font, named after you (e.g., `Jane_Doe_Resume.pdf`), never the company.
 
 ## How it works
 

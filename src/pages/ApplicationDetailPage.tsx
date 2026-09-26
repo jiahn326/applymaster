@@ -7,15 +7,12 @@ async function lazyExportPdf(...args: Parameters<typeof import('../lib/exportRes
   const { exportPdf } = await import('../lib/exportResume')
   return exportPdf(...args)
 }
-async function lazyExportGoogleDocs(...args: Parameters<typeof import('../lib/exportResume').exportGoogleDocs>) {
-  const { exportGoogleDocs } = await import('../lib/exportResume')
-  return exportGoogleDocs(...args)
-}
 import { tailorResume } from '../lib/tailorResume'
 import { generateCoverLetter } from '../lib/generateCoverLetter'
 import ResumeChangesView from '../components/ResumeChangesView'
 import FitReasons from '../components/FitReasons'
 import { useAbortable } from '../hooks/useAbortable'
+import { resumeFileName } from '../lib/resumeUtils'
 import type { TailoredResume } from '../lib/tailorResume'
 import type { ResumeStructure } from '../lib/parseResumeStructure'
 import type { JobFitAnalysis } from '../lib/analyzeJobFit'
@@ -258,7 +255,7 @@ export default function ApplicationDetailPage() {
     </div>
   )
 
-  const fileName = `${app.company}_${app.role}`
+  const fileName = resumeFileName(structure?.header.name)
 
   return (
     <div className="min-h-screen bg-[#F7F8FA]">
@@ -422,11 +419,6 @@ export default function ApplicationDetailPage() {
                       <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide mr-1">Export</span>
                       <button onClick={() => lazyExportPdf(structure, app.tailored_resume!, fileName, rawText)}
                         className="bg-gray-50 border border-gray-200 text-gray-700 font-medium px-3 py-1.5 rounded-lg hover:bg-gray-100 transition-all text-xs">↓ PDF</button>
-                      <button
-                        onClick={() => lazyExportGoogleDocs(structure, app.tailored_resume!, rawText)}
-                        className="bg-gray-50 border border-gray-200 text-gray-700 font-medium px-3 py-1.5 rounded-lg hover:bg-gray-100 transition-all text-xs"
-                        title="Download HTML → upload to Google Drive → open with Google Docs"
-                      >↓ Google Docs</button>
                       <button onClick={handleTailor} disabled={tailoring || !app.job_description}
                         className="ml-auto bg-gray-900 hover:bg-gray-700 disabled:opacity-40 text-white font-medium px-3 py-1.5 rounded-lg transition-all text-xs">
                         {tailoring ? '✨ Re-tailoring...' : '↺ Re-tailor'}
