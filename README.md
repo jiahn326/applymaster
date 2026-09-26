@@ -4,6 +4,8 @@
 
 ApplyMaster takes your resume and a job description, then uses the Claude API to suggest focused, bullet-level edits that match the role, without inventing experience you don't have. You review every change side by side, then export the tailored resume as a PDF or as a file you can open in Google Docs.
 
+**Live app:** [applymaster.vercel.app](https://applymaster.vercel.app)
+
 <!-- TODO: Add 1-2 screenshots here (e.g., the side-by-side comparison view and the application page). -->
 
 ---
@@ -47,7 +49,7 @@ flowchart LR
 
 **Keep the API key on the server.** All Claude calls go through a Supabase Edge Function, so the API key never reaches the browser.
 
-**Protect facts over keywords.** The tailoring prompt only allows terminology swaps that mirror the job description, forbids inventing metrics, technologies, or experience, and requires each rewritten bullet to be the same length or shorter than the original. Skills are never edited by the AI: the tailored resume always uses your original skill lines.
+**Protect facts over keywords.** The tailoring prompt only allows terminology swaps that mirror the job description, forbids inventing metrics, technologies, or experience, requires each rewritten bullet to be the same length or shorter than the original, and keeps each bullet's original tense, so ongoing work like "Migrating" never becomes a finished "Migrated". Skills are never edited by the AI: the tailored resume always uses your original skill lines.
 
 **Keep the PDF readable and close to the original.** The PDF embeds a Latin-subset Lato font (~70KB per style instead of ~650KB for the full font), so the file stays small. Body text auto-sizes between 10pt and 11pt so bullets that were one line in your original resume stay on one line.
 

@@ -108,7 +108,7 @@ The rewritten bullet must be the same length or shorter than the original. Do no
 
 TONE:
 - Plain, direct — like an engineer wrote it
-- Past-tense action verb to start
+- Start with an action verb, keeping the original bullet's tense (ongoing work like "Migrating" or "Building" stays in present tense; never turn it into a finished claim)
 - No periods at the end
 
 BANNED WORDS (never use):
