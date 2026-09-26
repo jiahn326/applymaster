@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import NewApplicationPanel from '../components/NewApplicationPanel'
 import { useAuth } from '../hooks/useAuth'
-import { appliedThroughShort } from '../lib/appliedThrough'
+import { APPLIED_THROUGH, appliedThroughShort } from '../lib/appliedThrough'
+import SourceIcon from '../components/SourceIcon'
 
 type Status = 'applied' | 'interviewing' | 'rejected' | 'offer'
 type FilterTab = 'all' | Status
@@ -228,6 +229,8 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<FilterTab>('all')
   const [search, setSearch] = useState('')
+  // 'all', 'none' (no source set yet), or an applied_through value
+  const [source, setSource] = useState('all')
   const [showNewPanel, setShowNewPanel] = useState(false)
   const [undoItem, setUndoItem] = useState<{ app: Application; timer: ReturnType<typeof setTimeout> } | null>(null)
   const [showChangePw, setShowChangePw] = useState(false)
@@ -323,9 +326,12 @@ export default function DashboardPage() {
     setApplications(prev => prev.map(a => a.id === id ? { ...a, status } : a))
   }
 
-  const filtered = applications
+  // Source counts follow the current status tab and search, so the numbers match what you'd see
+  const statusAndSearch = applications
     .filter(a => filter === 'all' || a.status === filter)
     .filter(a => !search || a.company.toLowerCase().includes(search.toLowerCase()) || a.role.toLowerCase().includes(search.toLowerCase()))
+  const filtered = statusAndSearch
+    .filter(a => source === 'all' || (source === 'none' ? !a.applied_through : a.applied_through === source))
 
   const counts = {
     total:        applications.length,
@@ -424,11 +430,23 @@ export default function DashboardPage() {
             ))}
           </div>
           <div className="flex gap-2 flex-1">
+            <select value={source} onChange={e => setSource(e.target.value)} aria-label="Filter by source"
+              className={`shrink-0 self-center max-w-[8rem] sm:max-w-[10rem] border rounded-md pl-2 pr-6 py-1 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-gray-900 ${
+                source === 'all' ? 'border-gray-200 text-gray-500' : 'border-gray-900 text-gray-900 font-medium'
+              }`}>
+              <option value="all">All sources</option>
+              {APPLIED_THROUGH.map(opt => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.short} ({statusAndSearch.filter(a => a.applied_through === opt.value).length})
+                </option>
+              ))}
+              <option value="none">Not set ({statusAndSearch.filter(a => !a.applied_through).length})</option>
+            </select>
             <input
               value={search}
               onChange={e => setSearch(e.target.value)}
               placeholder="Search by company or role..."
-              className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 bg-white"
+              className="flex-1 min-w-0 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 bg-white"
             />
             <div className="relative group shrink-0">
               <button
@@ -451,7 +469,7 @@ export default function DashboardPage() {
         {/* Empty state */}
         {!loading && filtered.length === 0 && (
           <div className="bg-white border border-dashed border-gray-300 rounded-xl py-16 text-center px-6">
-            {filter === 'all' && !search ? (
+            {filter === 'all' && source === 'all' && !search ? (
               <>
                 <p className="text-3xl mb-3">📋</p>
                 <p className="text-gray-700 font-semibold text-sm mb-1">No applications yet</p>
@@ -482,6 +500,10 @@ export default function DashboardPage() {
                 <p className="text-3xl mb-3">🔍</p>
                 <p className="text-gray-600 font-semibold text-sm">No results</p>
                 <p className="text-gray-400 text-xs mt-1">Try a different filter or search</p>
+                <button onClick={() => { setFilter('all'); setSource('all'); setSearch('') }}
+                  className="mt-3 text-xs font-medium text-gray-500 hover:text-gray-900 underline underline-offset-2">
+                  Clear filters
+                </button>
               </>
             )}
           </div>
@@ -490,11 +512,11 @@ export default function DashboardPage() {
         {/* Desktop table */}
         {filtered.length > 0 && (
           <div className="hidden sm:block bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
-            <div className="grid grid-cols-[110px_1fr_1fr_90px_70px_60px_130px_36px] gap-3 px-5 py-3 border-b border-gray-100 bg-gray-50">
+            <div className="grid grid-cols-[110px_1fr_1fr_56px_70px_60px_130px_36px] gap-3 px-5 py-3 border-b border-gray-100 bg-gray-50">
               <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Date</span>
               <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Company</span>
               <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Position</span>
-              <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Source</span>
+              <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide text-center">Source</span>
               <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide text-center">Cover Letter</span>
               <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide text-center">Fit</span>
               <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Status</span>
@@ -502,7 +524,7 @@ export default function DashboardPage() {
             </div>
             {filtered.map((app, i) => (
               <div key={app.id} onClick={() => navigate(`/applications/${app.id}`)}
-                className={`grid grid-cols-[110px_1fr_1fr_90px_70px_60px_130px_36px] gap-3 px-5 py-3.5 items-center cursor-pointer hover:bg-gray-50 transition-colors ${
+                className={`grid grid-cols-[110px_1fr_1fr_56px_70px_60px_130px_36px] gap-3 px-5 py-3.5 items-center cursor-pointer hover:bg-gray-50 transition-colors ${
                   i !== filtered.length - 1 ? 'border-b border-gray-100' : ''
                 }`}>
                 <span className="text-sm text-gray-500">
@@ -510,8 +532,8 @@ export default function DashboardPage() {
                 </span>
                 <span className="font-semibold text-gray-900 text-sm truncate">{app.company}</span>
                 <span className="text-sm text-gray-600 truncate">{app.role}</span>
-                <span className={`text-xs truncate ${app.applied_through ? 'text-gray-500' : 'text-gray-300'}`}>
-                  {appliedThroughShort(app.applied_through) ?? '—'}
+                <span className="flex justify-center text-sm">
+                  <SourceIcon value={app.applied_through} />
                 </span>
                 <span className={`text-sm font-medium text-center block ${app.cover_letter_submitted ? 'text-violet-600' : app.cover_letter ? 'text-gray-400' : 'text-gray-300'}`}>
                   {app.cover_letter_submitted ? '✓' : app.cover_letter ? '~' : '—'}
@@ -564,7 +586,10 @@ export default function DashboardPage() {
                     {new Date(app.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                   </span>
                   {app.applied_through && (
-                    <span className="text-xs text-gray-500">{appliedThroughShort(app.applied_through)}</span>
+                    <span className="inline-flex items-center gap-1 text-xs text-gray-500">
+                      <SourceIcon value={app.applied_through} />
+                      {appliedThroughShort(app.applied_through)}
+                    </span>
                   )}
                   {app.fit_analysis && (
                     <span className={`text-xs font-semibold ${
