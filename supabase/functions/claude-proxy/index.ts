@@ -140,15 +140,22 @@ ${currentLocation ? `\nCANDIDATE'S CURRENT LOCATION: ${currentLocation}\n` : ''}
 JOB DESCRIPTION:
 ${jobDescription}
 
+FOR EACH CATEGORY, list why it scored that way:
+- "strengths": up to 3 specific matches; "gaps": up to 3 specific shortfalls. Use [] when there are none.
+- "item" is the concrete thing in 1-4 words: a skill, requirement, or fact (e.g. "Kubernetes", "5+ yrs", "React, TypeScript", "Seattle").
+- For gaps, "note" is "required" or "preferred" when the JD says so, otherwise a 1-4 word fact (e.g. "you have ~3"). Do not write "not in resume" — a gap already means that.
+- For strengths, "note" is where it shows up in the resume in 1-3 words (e.g. "Acme", "ApplyMaster project").
+- Only cite what is actually in the resume and the job description. Never invent experience.
+
 Return JSON only:
 {
   "overallScore": <0-100>,
   "verdict": "Apply" | "Maybe" | "Skip",
   "verdictReason": "<one sentence>",
   "categories": [
-    { "label": "Skills Match", "score": <0-100>, "verdict": "strong"|"good"|"reach"|"weak", "summary": "<1-2 sentences>" },
-    { "label": "Experience Level", "score": <0-100>, "verdict": "strong"|"good"|"reach"|"weak", "summary": "<1-2 sentences>" },
-    { "label": "Location", "score": <0-100>, "verdict": "strong"|"good"|"reach"|"weak", "summary": "<1-2 sentences>" }
+    { "label": "Skills Match", "score": <0-100>, "verdict": "strong"|"good"|"reach"|"weak", "summary": "<one sentence>", "strengths": [{ "item": "", "note": "" }], "gaps": [{ "item": "", "note": "" }] },
+    { "label": "Experience Level", "score": <0-100>, "verdict": "strong"|"good"|"reach"|"weak", "summary": "<one sentence>", "strengths": [{ "item": "", "note": "" }], "gaps": [{ "item": "", "note": "" }] },
+    { "label": "Location", "score": <0-100>, "verdict": "strong"|"good"|"reach"|"weak", "summary": "<one sentence>", "strengths": [{ "item": "", "note": "" }], "gaps": [{ "item": "", "note": "" }] }
   ]
 }`, 8000)
   return JSON.parse(text)
@@ -226,7 +233,14 @@ ${content}
 ${hasResume ? `RESUME:
 ${resumeRawText}
 ${currentLocation ? `\nCANDIDATE'S CURRENT LOCATION: ${currentLocation}` : ''}` : ''}
-
+${hasResume ? `
+FOR EACH CATEGORY, list why it scored that way:
+- "strengths": up to 3 specific matches; "gaps": up to 3 specific shortfalls. Use [] when there are none.
+- "item" is the concrete thing in 1-4 words: a skill, requirement, or fact (e.g. "Kubernetes", "5+ yrs", "React, TypeScript", "Seattle").
+- For gaps, "note" is "required" or "preferred" when the JD says so, otherwise a 1-4 word fact (e.g. "you have ~3"). Do not write "not in resume" — a gap already means that.
+- For strengths, "note" is where it shows up in the resume in 1-3 words (e.g. "Acme", "ApplyMaster project").
+- Only cite what is actually in the resume and the job description. Never invent experience.
+` : ''}
 Return JSON only:
 {
   "jobInfo": { "company": "", "role": "", "jobDescription": "" },
@@ -235,9 +249,9 @@ Return JSON only:
     "verdict": "Apply" | "Maybe" | "Skip",
     "verdictReason": "<one sentence>",
     "categories": [
-      { "label": "Skills Match", "score": <0-100>, "verdict": "strong"|"good"|"reach"|"weak", "summary": "<1-2 sentences>" },
-      { "label": "Experience Level", "score": <0-100>, "verdict": "strong"|"good"|"reach"|"weak", "summary": "<1-2 sentences>" },
-      { "label": "Location", "score": <0-100>, "verdict": "strong"|"good"|"reach"|"weak", "summary": "<1-2 sentences>" }
+      { "label": "Skills Match", "score": <0-100>, "verdict": "strong"|"good"|"reach"|"weak", "summary": "<one sentence>", "strengths": [{ "item": "", "note": "" }], "gaps": [{ "item": "", "note": "" }] },
+      { "label": "Experience Level", "score": <0-100>, "verdict": "strong"|"good"|"reach"|"weak", "summary": "<one sentence>", "strengths": [{ "item": "", "note": "" }], "gaps": [{ "item": "", "note": "" }] },
+      { "label": "Location", "score": <0-100>, "verdict": "strong"|"good"|"reach"|"weak", "summary": "<one sentence>", "strengths": [{ "item": "", "note": "" }], "gaps": [{ "item": "", "note": "" }] }
     ]
   }` : 'null'}
 }`, 12000)

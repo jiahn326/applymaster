@@ -5,6 +5,8 @@ import { api } from '../lib/api'
 import { useAbortable } from '../hooks/useAbortable'
 import type { JobFitAnalysis } from '../lib/analyzeJobFit'
 import { VERDICT_CONFIG, CATEGORY_COLOR } from '../lib/fitConfig'
+import FitReasons from './FitReasons'
+import { DEV_SAMPLE_JDS } from '../lib/devSampleJds'
 
 type AppliedThrough = 'linkedin' | 'indeed' | 'company' | 'referral' | 'other'
 type Step = 'paste' | 'analyzing' | 'analysis' | 'form'
@@ -135,6 +137,17 @@ export default function NewApplicationPanel({ onSaved, onClose }: Props) {
     }
   }
 
+  // Local dev only: fill a random sample JD (different from the last one) and analyze it
+  const lastSampleRef = useRef(-1)
+  function runSampleJd() {
+    let i = Math.floor(Math.random() * DEV_SAMPLE_JDS.length)
+    if (i === lastSampleRef.current) i = (i + 1) % DEV_SAMPLE_JDS.length
+    lastSampleRef.current = i
+    setError(null)
+    setPasteText(DEV_SAMPLE_JDS[i])
+    handlePaste(DEV_SAMPLE_JDS[i])
+  }
+
   function cancelAnalyze() {
     analyzeJob.cancel()
     setError(null)
@@ -252,6 +265,12 @@ export default function NewApplicationPanel({ onSaved, onClose }: Props) {
         {/* ── STEP: PASTE ── */}
         {(step === 'paste' || step === 'analyzing') && (
           <div className="px-6 py-8 flex flex-col items-center text-center">
+            {import.meta.env.DEV && (
+              <button onClick={runSampleJd} disabled={step === 'analyzing'}
+                className="w-full mb-6 border border-dashed border-gray-300 rounded-xl py-2 text-xs font-medium text-gray-500 hover:text-gray-900 hover:border-gray-400 hover:bg-gray-50 disabled:opacity-40 transition-colors">
+                DEV · Test with new sample JD
+              </button>
+            )}
             <div className="text-3xl mb-3">🔍</div>
             <h3 className="text-base font-semibold text-gray-900 mb-1">Paste a job URL or description</h3>
             <p className="text-gray-400 text-xs mb-6">We'll analyze how well you match before you decide to apply</p>
@@ -356,7 +375,7 @@ export default function NewApplicationPanel({ onSaved, onClose }: Props) {
                     <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden mb-2">
                       <div className={`h-full rounded-full ${c.bar}`} style={{ width: `${cat.score}%` }} />
                     </div>
-                    <p className="text-xs text-gray-500 leading-relaxed">{cat.summary}</p>
+                    <FitReasons category={cat} />
                   </div>
                 )
               })}

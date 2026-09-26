@@ -5,7 +5,12 @@ export interface FitCategory {
   score: number
   verdict: 'strong' | 'good' | 'reach' | 'weak'
   summary: string
+  // Added later — older saved analyses only have `summary`, and some have plain-string reasons
+  strengths?: FitReason[]
+  gaps?: FitReason[]
 }
+
+export type FitReason = string | { item: string; note?: string }
 
 export interface JobFitAnalysis {
   overallScore: number

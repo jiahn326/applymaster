@@ -14,6 +14,7 @@ async function lazyExportGoogleDocs(...args: Parameters<typeof import('../lib/ex
 import { tailorResume } from '../lib/tailorResume'
 import { generateCoverLetter } from '../lib/generateCoverLetter'
 import ResumeChangesView from '../components/ResumeChangesView'
+import FitReasons from '../components/FitReasons'
 import { useAbortable } from '../hooks/useAbortable'
 import type { TailoredResume } from '../lib/tailorResume'
 import type { ResumeStructure } from '../lib/parseResumeStructure'
@@ -363,7 +364,7 @@ export default function ApplicationDetailPage() {
                         <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden mb-2">
                           <div className={`h-full rounded-full ${c.bar}`} style={{ width: `${cat.score}%` }} />
                         </div>
-                        <p className="text-xs text-gray-500 leading-relaxed">{cat.summary}</p>
+                        <FitReasons category={cat} />
                       </div>
                     )
                   })}
