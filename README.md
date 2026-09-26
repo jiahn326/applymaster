@@ -1,73 +1,100 @@
-# React + TypeScript + Vite
+# ApplyMaster
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+**AI-powered resume tailoring for every job you apply to.**
 
-Currently, two official plugins are available:
+ApplyMaster takes your resume and a job description, then uses the Claude API to suggest focused, bullet-level edits that match the role, without inventing experience you don't have. You review every change side by side, then export the tailored resume as a PDF or as a file you can open in Google Docs.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+<!-- TODO: Add 1-2 screenshots here (e.g., the side-by-side comparison view and the application page). -->
 
-## React Compiler
+---
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Why I built it
 
-## Expanding the ESLint configuration
+Tailoring a resume for each application is slow, and generic AI rewriting tools tend to make things worse: they inflate claims, add skills you don't have, and turn one-line bullets into two-line paragraphs. I wanted a tool that changes only what actually improves the fit, keeps every fact accurate, and shows me exactly what changed.
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+## Features
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+- **Resume parsing:** Upload a PDF or DOCX resume. It's parsed into a structured format that keeps your original section titles and skill groups (e.g., Languages, Frameworks, Tools).
+- **Bullet-level tailoring:** Claude compares your resume with the job description and returns only the bullets worth changing, not a full rewrite.
+- **Side-by-side review:** Original on the left, tailored on the right, with synchronized scrolling. Only the changed words are highlighted: removed words on the left, added words on the right.
+- **Job fit analysis:** Paste a job URL or description to extract the company, role, and description, and see how well you fit. Each category (skills, experience, location) lists specific gaps, marked required or preferred, and matches.
+- **Cover letters and "Why this company" answers:** Generates drafts from the job description, using a cover letter template you can edit in Settings.
+- **Cancelable AI actions:** Any AI request (tailoring, analysis, generation, resume parsing) can be canceled while it runs.
+- **Export:** PDF with an embedded Lato font, and an HTML file you can upload to Google Drive and open with Google Docs.
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+## How it works
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```mermaid
+flowchart LR
+    A[User clicks<br/>Tailor Resume] --> B[React frontend]
+    B -->|resume + job description| C[Supabase Edge Function<br/>claude-proxy]
+    C -->|prompt| D[Claude API]
+    D -->|JSON diffs| C
+    C -->|JSON diffs| B
+    B --> E[(Supabase DB<br/>applications.tailored_resume)]
+    B --> F[Apply diffs to<br/>original structure]
+    F --> G[Side-by-side view<br/>+ export]
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+1. The frontend sends the resume and job description to a Supabase Edge Function.
+2. The Edge Function calls the Claude API, which returns a small JSON list of changes (section, bullet index, original text, tailored text).
+3. The frontend saves only these diffs, in the `applications` table.
+4. The app applies the diffs to the original resume structure to render the tailored version.
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## Design decisions
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+**Store diffs, not full resumes.** The resume structure lives in the `resumes` table, and each application only stores its diffs. One resume can be tailored to many job postings, and the comparison view comes for free.
+
+**Keep the API key on the server.** All Claude calls go through a Supabase Edge Function, so the API key never reaches the browser.
+
+**Protect facts over keywords.** The tailoring prompt only allows terminology swaps that mirror the job description, forbids inventing metrics, technologies, or experience, and requires each rewritten bullet to be the same length or shorter than the original. Skills are never edited by the AI: the tailored resume always uses your original skill lines.
+
+**Keep the PDF readable and close to the original.** The PDF embeds a Latin-subset Lato font (~70KB per style instead of ~650KB for the full font), so the file stays small. Body text auto-sizes between 10pt and 11pt so bullets that were one line in your original resume stay on one line.
+
+## Tech stack
+
+| Area | Tools |
+|------|-------|
+| Frontend | React, TypeScript, Vite, Tailwind CSS |
+| Backend | Supabase (Auth, PostgreSQL, Edge Functions) |
+| AI | Claude API (`claude-sonnet-5`) |
+| Document handling | pdf.js, Mammoth (parsing) · jsPDF (PDF export) |
+| Deployment | Vercel (auto-deploys from GitHub) |
+
+## Running locally
+
+```bash
+git clone https://github.com/jiahn326/applymaster.git
+cd applymaster
+npm install
 ```
+
+Create a `.env.local` file with your Supabase project details:
+
+```
+VITE_SUPABASE_URL=your-project-url
+VITE_SUPABASE_ANON_KEY=your-anon-key
+```
+
+Link the Supabase project, set the Anthropic API key as a secret, and deploy the Edge Function:
+
+```bash
+npx supabase login
+npx supabase link --project-ref your-project-ref
+npx supabase secrets set ANTHROPIC_API_KEY=your-api-key
+npx supabase functions deploy claude-proxy
+```
+
+Optionally, set `ALLOWED_ORIGIN` as a secret to restrict which site can call the Edge Function (it allows all origins by default).
+
+Start the development server:
+
+```bash
+npm run dev
+```
+
+## Roadmap
+
+- Validate saved diffs against the current resume, so edits to the original resume never misapply older tailoring results
+- Server-side checks on AI output (length limits, no placeholder text)
+- More export templates
