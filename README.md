@@ -18,7 +18,7 @@ Tailoring a resume for each application is slow, and generic AI rewriting tools 
 
 - **Resume parsing:** Upload a PDF or DOCX resume. It's parsed into a structured format that keeps your original section titles and skill groups (e.g., Languages, Frameworks, Tools).
 - **Bullet-level tailoring:** Claude compares your resume with the job description and returns only the bullets worth changing, not a full rewrite.
-- **Side-by-side review:** Original on the left, tailored on the right, with synchronized scrolling. Only the changed words are highlighted: removed words on the left, added words on the right.
+- **Side-by-side review:** Original on the left, tailored on the right, with synchronized scrolling. Only the changed words are highlighted: removed words on the left, added words on the right. Undo any single change you don't want, and the PDF follows your choices; re-tailoring remembers the edits you undid.
 - **Job fit analysis:** Paste a job URL or description to extract the company, role, and description, and see how well you fit. Each category (skills, experience, location) lists specific gaps, marked required or preferred, and matches.
 - **Cover letters and "Why this company" answers:** Generates drafts from the job description, using a cover letter template you can edit in Settings.
 - **Cancelable AI actions:** Any AI request (tailoring, analysis, generation, resume parsing) can be canceled while it runs.

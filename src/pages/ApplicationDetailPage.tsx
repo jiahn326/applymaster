@@ -12,7 +12,7 @@ import { generateCoverLetter } from '../lib/generateCoverLetter'
 import ResumeChangesView from '../components/ResumeChangesView'
 import FitReasons from '../components/FitReasons'
 import { useAbortable } from '../hooks/useAbortable'
-import { resumeFileName, resolveTailoring } from '../lib/resumeUtils'
+import { resumeFileName, resolveTailoring, carryOverUndone } from '../lib/resumeUtils'
 import { APPLIED_THROUGH, appliedThroughLabel } from '../lib/appliedThrough'
 import type { TailoredResume } from '../lib/tailorResume'
 import type { ResumeStructure } from '../lib/parseResumeStructure'
@@ -170,6 +170,24 @@ export default function ApplicationDetailPage() {
     await supabase.from('applications').update({ job_url: next }).eq('id', id)
   }
 
+  // Undo/Redo one suggested change. Saved right away, in click order, like the source chips.
+  const diffQueue = useRef<Promise<unknown>>(Promise.resolve())
+  const diffSeq = useRef(0)
+  function toggleDiff(diffIndex: number) {
+    if (!app?.tailored_resume) return
+    const prev = app.tailored_resume
+    const next = { ...prev, diffs: prev.diffs.map((d, i) => i === diffIndex ? { ...d, accepted: d.accepted === false } : d) }
+    const seq = ++diffSeq.current
+    setApp({ ...app, tailored_resume: next })
+    diffQueue.current = diffQueue.current.then(async () => {
+      const { error } = await supabase.from('applications').update({ tailored_resume: next }).eq('id', id)
+      if (error && seq === diffSeq.current) {
+        setApp(a => a && { ...a, tailored_resume: prev })
+        alert('Could not save: ' + error.message)
+      }
+    })
+  }
+
   // Saves immediately; clicking the selected option again clears it. Writes are
   // queued so rapid clicks reach the database in click order (last click wins).
   const sourceQueue = useRef<Promise<unknown>>(Promise.resolve())
@@ -225,7 +243,8 @@ export default function ApplicationDetailPage() {
     const signal = tailorJob.start()
     setTailoring(true)
     try {
-      const result = await tailorResume({ id: resumeId, rawText, structure }, app.job_description, signal)
+      // Keep edits the user already undid if the same edit comes back
+      const result = carryOverUndone(app.tailored_resume, await tailorResume({ id: resumeId, rawText, structure }, app.job_description, signal))
       if (signal.aborted) return
       await supabase.from('applications').update({ tailored_resume: result }).eq('id', id)
       setApp({ ...app, tailored_resume: result })
@@ -540,7 +559,7 @@ export default function ApplicationDetailPage() {
                         </button>
                       </div>
                     )}
-                    <ResumeChangesView tailored={app.tailored_resume} structure={viewStructure} rawText={viewRawText} />
+                    <ResumeChangesView tailored={app.tailored_resume} structure={viewStructure} rawText={viewRawText} onToggleDiff={toggleDiff} />
                   </>
                 ) : (
                   <button onClick={handleTailor} disabled={tailoring || !app.job_description}

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { resolveTailoring, normalizeBullet, labeledLine, resumeFileName } from './resumeUtils'
+import { resolveTailoring, carryOverUndone, normalizeBullet, labeledLine, resumeFileName } from './resumeUtils'
 import type { ResumeStructure } from './parseResumeStructure'
 import type { BulletDiff, TailoredResume } from './tailorResume'
 
@@ -122,6 +122,63 @@ describe('resolveTailoring', () => {
     const s = resume()
     resolveTailoring(s, tailored(diff({ index: 0, original: 'Built automated deployments for 12 services', tailored: 'Changed' })))
     expect(s.experience[0].bullets[0]).toBe('Built automated deployments for 12 services')
+  })
+})
+
+describe('placements (for Undo / Redo)', () => {
+  it('records where applied and undone diffs land, by diff index', () => {
+    const r = resolveTailoring(resume(), tailored(
+      diff({ index: 0, original: 'Built automated deployments for 12 services', tailored: 'Built CI/CD pipelines for 12 services' }),
+      diff({ index: 1, original: 'Worked with multiple teams to ship a billing dashboard', tailored: 'Worked with cross-functional teams', accepted: false }),
+      diff({ section: 'ApplyMaster', index: 0, original: 'Migrating resume parsing to structured skill groups', tailored: 'Migrating parsing to typed groups' }),
+    ))
+    expect(r.placements).toEqual([
+      { diffIndex: 0, kind: 'experience', entry: 0, bullet: 0, status: 'applied' },
+      { diffIndex: 1, kind: 'experience', entry: 0, bullet: 1, status: 'undone' },
+      { diffIndex: 2, kind: 'projects', entry: 0, bullet: 0, status: 'applied' },
+    ])
+    expect(r.structure.experience[0].bullets[1]).toBe('Worked with multiple teams to ship a billing dashboard')
+  })
+
+  it('keeps the bullet of an undone diff reserved so Redo can restore it', () => {
+    const r = resolveTailoring(resume(), tailored(
+      diff({ index: 0, original: 'Built automated deployments for 12 services', tailored: 'First edit', accepted: false }),
+      diff({ index: 0, original: 'Built automated deployments for 12 services', tailored: 'Second edit' }),
+    ))
+    expect(r.structure.experience[0].bullets[0]).toBe('Built automated deployments for 12 services')
+    expect(r.notApplied).toHaveLength(1)
+  })
+
+  it('has no placement for a diff that could not be matched', () => {
+    const r = resolveTailoring(resume(), tailored(diff({ index: 0, original: 'Not in the resume', tailored: 'x' })))
+    expect(r.placements).toEqual([])
+  })
+})
+
+describe('carryOverUndone', () => {
+  const prev = tailored(
+    diff({ index: 0, original: 'Built automated deployments', tailored: 'Built CI/CD pipelines', accepted: false }),
+    diff({ index: 1, original: 'Worked with multiple teams', tailored: 'Worked with cross-functional teams', accepted: true }),
+  )
+
+  it('keeps the same edit turned off after re-tailoring', () => {
+    const next = carryOverUndone(prev, tailored(diff({ index: 0, original: 'Built automated deployments', tailored: 'Built CI/CD pipelines.' })))
+    expect(next.diffs[0].accepted).toBe(false)
+  })
+
+  it('shows a different suggestion for the same bullet as a new, applied change', () => {
+    const next = carryOverUndone(prev, tailored(diff({ index: 0, original: 'Built automated deployments', tailored: 'Built deployment pipelines' })))
+    expect(next.diffs[0].accepted).toBe(true)
+  })
+
+  it('does not turn off edits the user had kept', () => {
+    const next = carryOverUndone(prev, tailored(diff({ index: 1, original: 'Worked with multiple teams', tailored: 'Worked with cross-functional teams' })))
+    expect(next.diffs[0].accepted).toBe(true)
+  })
+
+  it('leaves the result unchanged when there was no previous result', () => {
+    const fresh = tailored(diff({ original: 'a', tailored: 'b' }))
+    expect(carryOverUndone(null, fresh)).toBe(fresh)
   })
 })
 

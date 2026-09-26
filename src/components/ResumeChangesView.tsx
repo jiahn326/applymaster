@@ -1,14 +1,19 @@
 import { useState, useRef } from 'react'
 import type { TailoredResume } from '../lib/tailorResume'
 import type { ResumeStructure } from '../lib/parseResumeStructure'
-import { applyTailoring, skillGroups, sectionTitle, labeledLine } from '../lib/resumeUtils'
+import { resolveTailoring, skillGroups, sectionTitle, labeledLine, type DiffPlacement } from '../lib/resumeUtils'
 import { wordDiff } from '../lib/wordDiff'
 
 interface Props {
   tailored: TailoredResume
   structure: ResumeStructure
   rawText?: string
+  // Turns one suggested change on/off; the preview and PDF follow `accepted`
+  onToggleDiff?: (diffIndex: number) => void
 }
+
+type PlacementMap = Map<string, DiffPlacement>
+const placementKey = (kind: DiffPlacement['kind'], entry: number, bullet: number) => `${kind}:${entry}:${bullet}`
 
 
 // ─── Resume section renderer ──────────────────────────────────────────────────
@@ -39,17 +44,45 @@ function CopyButton({ text, copyKey, copiedKey, onCopy }: { text: string; copyKe
   )
 }
 
+// Undo shows on hover where a mouse is available and always on touch screens;
+// Redo is always visible because an undone bullet has no highlight to point to it.
+function ToggleButton({ label, onClick, alwaysVisible, title }: { label: string; onClick: () => void; alwaysVisible?: boolean; title?: string }) {
+  return (
+    <button onClick={onClick} title={title}
+      className={`ml-1.5 align-baseline text-[10px] font-semibold text-gray-400 hover:text-gray-900 underline underline-offset-2 transition-opacity focus-visible:opacity-100 ${
+        alwaysVisible ? '' : '[@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover/bullet:opacity-100'
+      }`}>
+      {label}
+    </button>
+  )
+}
+
 // A bullet that differs from its counterpart on the other side gets a colored rule on
 // the left and only the changed words highlighted: removed words on the original side,
-// added words on the tailored side.
-function Bullet({ text, counterpart, side }: { text: string; counterpart?: string; side: 'original' | 'tailored' }) {
+// added words on the tailored side. On the tailored side a change can be undone/redone.
+function Bullet({ text, counterpart, side, placement, suggestion, onToggle }: {
+  text: string
+  counterpart?: string
+  side: 'original' | 'tailored'
+  placement?: DiffPlacement
+  suggestion?: string
+  onToggle?: (diffIndex: number) => void
+}) {
+  if (placement?.status === 'undone' && side === 'tailored') {
+    return (
+      <div className="pl-2 border-l-2 border-dashed border-gray-300 text-gray-700">
+        ● {text}
+        {onToggle && <ToggleButton label="Redo" alwaysVisible title={suggestion ? `Suggested: ${suggestion}` : undefined} onClick={() => onToggle(placement.diffIndex)} />}
+      </div>
+    )
+  }
   if (counterpart === undefined || counterpart === text) {
     return <div className="pl-2 border-l-2 border-transparent text-gray-700">● {text}</div>
   }
   const parts = side === 'original' ? wordDiff(text, counterpart) : wordDiff(counterpart, text)
   const shown = side === 'original' ? 'removed' : 'added'
   return (
-    <div className={`pl-2 border-l-2 text-gray-700 ${side === 'original' ? 'border-red-300' : 'border-emerald-500'}`}>
+    <div className={`group/bullet pl-2 border-l-2 text-gray-700 ${side === 'original' ? 'border-red-300' : 'border-emerald-500'}`}>
       ●{' '}
       {parts.filter(p => p.type === 'same' || p.type === shown).map((p, i) => (
         <span key={i}>
@@ -61,15 +94,21 @@ function Bullet({ text, counterpart, side }: { text: string; counterpart?: strin
               : <span className="bg-emerald-100 text-emerald-900 font-medium rounded-sm px-0.5">{p.text}</span>}
         </span>
       ))}
+      {side === 'tailored' && placement?.status === 'applied' && onToggle && (
+        <ToggleButton label="Undo" onClick={() => onToggle(placement.diffIndex)} />
+      )}
     </div>
   )
 }
 
-function ResumePreview({ structure, compareTo, side, rawText, copyable = false, copiedKey, onCopy, scrollRef, onScroll }: {
+function ResumePreview({ structure, compareTo, side, rawText, placements, suggestions, onToggle, copyable = false, copiedKey, onCopy, scrollRef, onScroll }: {
   structure: ResumeStructure
   compareTo: ResumeStructure
   side: 'original' | 'tailored'
   rawText?: string
+  placements?: PlacementMap
+  suggestions?: string[]
+  onToggle?: (diffIndex: number) => void
   copyable?: boolean
   copiedKey?: string | null
   onCopy?: (text: string, key: string) => void
@@ -77,6 +116,10 @@ function ResumePreview({ structure, compareTo, side, rawText, copyable = false, 
   onScroll?: (e: React.UIEvent<HTMLDivElement>) => void
 }) {
   const skills = skillGroups(structure).map(g => labeledLine(g.label, g.items.join(', ')))
+  const bulletProps = (kind: DiffPlacement['kind'], entry: number, bullet: number) => {
+    const placement = placements?.get(placementKey(kind, entry, bullet))
+    return { placement, suggestion: placement ? suggestions?.[placement.diffIndex] : undefined, onToggle }
+  }
   return (
     <div ref={scrollRef} onScroll={onScroll} className="text-xs leading-relaxed p-4 bg-white border border-gray-200 rounded-xl overflow-y-auto max-h-[600px]">
       {/* Header */}
@@ -133,7 +176,7 @@ function ResumePreview({ structure, compareTo, side, rawText, copyable = false, 
               {group.roles.map((role, ri) => (
                 <div key={ri} className="group relative">
                   {role.bullets.map((b, j) => (
-                    <Bullet key={j} text={b} counterpart={compareTo.experience[role.expIdx]?.bullets[j]} side={side} />
+                    <Bullet key={j} text={b} counterpart={compareTo.experience[role.expIdx]?.bullets[j]} side={side} {...bulletProps('experience', role.expIdx, j)} />
                   ))}
                   {copyable && onCopy && (
                     <div className="absolute top-0 right-0">
@@ -158,7 +201,7 @@ function ResumePreview({ structure, compareTo, side, rawText, copyable = false, 
               </div>
               <div className="group relative">
                 {proj.bullets.map((b, j) => (
-                  <Bullet key={j} text={b} counterpart={compareTo.projects[i]?.bullets[j]} side={side} />
+                  <Bullet key={j} text={b} counterpart={compareTo.projects[i]?.bullets[j]} side={side} {...bulletProps('projects', i, j)} />
                 ))}
                 {copyable && onCopy && (
                   <div className="absolute top-0 right-0">
@@ -176,7 +219,7 @@ function ResumePreview({ structure, compareTo, side, rawText, copyable = false, 
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export default function ResumeChangesView({ tailored, structure, rawText }: Props) {
+export default function ResumeChangesView({ tailored, structure, rawText, onToggleDiff }: Props) {
   const [copiedKey, setCopiedKey] = useState<string | null>(null)
   const leftRef = useRef<HTMLDivElement>(null)
   const rightRef = useRef<HTMLDivElement>(null)
@@ -197,12 +240,15 @@ export default function ResumeChangesView({ tailored, structure, rawText }: Prop
     setTimeout(() => setCopiedKey(null), 1500)
   }
 
-  const tailoredStructure = applyTailoring(structure, tailored)
+  const resolution = resolveTailoring(structure, tailored)
+  const tailoredStructure = resolution.structure
+  const placements: PlacementMap = new Map(resolution.placements.map(p => [placementKey(p.kind, p.entry, p.bullet), p]))
+  const suggestions = tailored.diffs.map(d => d.tailored)
 
   return (
     <div className="space-y-3">
       <div className="bg-gray-50 rounded-xl px-4 py-3 text-xs text-gray-500 leading-relaxed">
-        Only the words that changed are highlighted: <span className="bg-red-50 text-red-700 line-through decoration-red-300 rounded-sm px-0.5">removed</span> on the left, <span className="bg-emerald-100 text-emerald-900 font-medium rounded-sm px-0.5">added</span> on the right. Copy any bullet you want to use, or export the full tailored resume below.
+        Only the words that changed are highlighted: <span className="bg-red-50 text-red-700 line-through decoration-red-300 rounded-sm px-0.5">removed</span> on the left, <span className="bg-emerald-100 text-emerald-900 font-medium rounded-sm px-0.5">added</span> on the right. Don't want a change? Use <span className="font-semibold">Undo</span> on that bullet — the PDF follows your choices.
       </div>
       {/* Split preview */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -217,6 +263,9 @@ export default function ResumeChangesView({ tailored, structure, rawText }: Prop
             compareTo={structure}
             side="tailored"
             rawText={rawText}
+            placements={placements}
+            suggestions={suggestions}
+            onToggle={onToggleDiff}
             copyable
             copiedKey={copiedKey}
             onCopy={copyWithFeedback}

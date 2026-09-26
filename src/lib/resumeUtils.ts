@@ -10,52 +10,69 @@ export function normalizeBullet(text: string): string {
   return t.replace(/\s+/g, ' ').trim().replace(/\.$/, '').toLowerCase()
 }
 
+// Where a diff lands in the resume: experience/projects entry index + bullet index.
+// `diffIndex` points into tailored.diffs so the UI can toggle that diff.
+export interface DiffPlacement {
+  diffIndex: number
+  kind: 'experience' | 'projects'
+  entry: number
+  bullet: number
+  status: 'applied' | 'undone'
+}
+
 export interface TailoringResolution {
   structure: ResumeStructure
   applied: BulletDiff[]
   notApplied: BulletDiff[]   // accepted, but no bullet in the resume matches its original text
   undone: BulletDiff[]       // turned off by the user (accepted: false)
+  placements: DiffPlacement[]
 }
 
 // Applies accepted diffs only where the original text is actually in the resume:
 //   1. the bullet at diff.index in a matching section, or
 //   2. if not there, a bullet with that text that appears exactly once in the section.
 // Anything else is reported as not applied instead of overwriting a different bullet.
+// Diffs the user turned off are located the same way (so they can be turned back on)
+// but leave the bullet unchanged.
 export function resolveTailoring(structure: ResumeStructure, tailored: TailoredResume): TailoringResolution {
   const result: ResumeStructure = JSON.parse(JSON.stringify(structure))
   const applied: BulletDiff[] = [], notApplied: BulletDiff[] = [], undone: BulletDiff[] = []
-  // Bullets already replaced, so two diffs never land on the same bullet
-  const usedAt = new Map<string[], Set<number>>()
-  const isUsed = (b: string[], i: number) => usedAt.get(b)?.has(i) ?? false
-  const markUsed = (b: string[], i: number) => { usedAt.set(b, (usedAt.get(b) ?? new Set()).add(i)) }
+  const placements: DiffPlacement[] = []
+  // Bullets already claimed by a diff, so two diffs never land on the same bullet
+  const claimed = new Set<string>()
+  const key = (kind: string, entry: number, bullet: number) => `${kind}:${entry}:${bullet}`
 
-  for (const diff of tailored.diffs ?? []) {
-    if (!diff.accepted) { undone.push(diff); continue }
+  ;(tailored.diffs ?? []).forEach((diff, diffIndex) => {
+    const on = diff.accepted !== false
     const original = normalizeBullet(diff.original ?? '')
-    const lists: string[][] = [
-      ...result.experience.filter(e => e.company === diff.section || e.title === diff.section).map(e => e.bullets),
-      ...result.projects.filter(p => p.name === diff.section || p.name.startsWith(diff.section)).map(p => p.bullets),
-    ]
-    if (!original || !lists.length) { notApplied.push(diff); continue }
+    const entries = [
+      ...result.experience.map((e, entry) => ({ kind: 'experience' as const, entry, bullets: e.bullets, match: e.company === diff.section || e.title === diff.section })),
+      ...result.projects.map((p, entry) => ({ kind: 'projects' as const, entry, bullets: p.bullets, match: p.name === diff.section || p.name.startsWith(diff.section) })),
+    ].filter(e => e.match)
+    const free = (e: typeof entries[number], i: number) =>
+      e.bullets[i] !== undefined && !claimed.has(key(e.kind, e.entry, i)) && normalizeBullet(e.bullets[i]) === original
 
-    // 1. At the saved index (every matching entry — identical bullets get the same edit)
-    const atIndex = lists.filter(b => b[diff.index] !== undefined && !isUsed(b, diff.index) && normalizeBullet(b[diff.index]) === original)
-    if (atIndex.length) {
-      for (const b of atIndex) { b[diff.index] = diff.tailored; markUsed(b, diff.index) }
-      applied.push(diff)
-      continue
+    let targets: { e: typeof entries[number]; i: number }[] = []
+    if (original && entries.length) {
+      // 1. At the saved index (every matching entry — identical bullets get the same edit)
+      targets = entries.filter(e => free(e, diff.index)).map(e => ({ e, i: diff.index }))
+      // 2. Moved within the section: only when the text appears exactly once
+      if (!targets.length) {
+        const hits = entries.flatMap(e => e.bullets.map((_, i) => ({ e, i }))).filter(h => free(h.e, h.i))
+        if (hits.length === 1) targets = hits
+      }
     }
-    // 2. Moved within the section: only when the text appears exactly once
-    const hits = lists.flatMap(b => b.map((text, i) => ({ b, i, text })))
-      .filter(h => !isUsed(h.b, h.i) && normalizeBullet(h.text) === original)
-    if (hits.length === 1) {
-      hits[0].b[hits[0].i] = diff.tailored
-      markUsed(hits[0].b, hits[0].i)
-      applied.push(diff)
-    } else {
-      notApplied.push(diff)
+
+    if (!on) undone.push(diff)
+    else if (targets.length) applied.push(diff)
+    else notApplied.push(diff)
+
+    for (const { e, i } of targets) {
+      claimed.add(key(e.kind, e.entry, i))
+      if (on) e.bullets[i] = diff.tailored
+      placements.push({ diffIndex, kind: e.kind, entry: e.entry, bullet: i, status: on ? 'applied' : 'undone' })
     }
-  }
+  })
 
   for (const exp of result.experience) {
     exp.bullets = exp.bullets.map(b => b.replace(/\s*\[add metric:[^\]]*\]/gi, '').trim())
@@ -64,7 +81,23 @@ export function resolveTailoring(structure: ResumeStructure, tailored: TailoredR
     proj.bullets = proj.bullets.map(b => b.replace(/\s*\[add metric:[^\]]*\]/gi, '').trim())
   }
 
-  return { structure: result, applied, notApplied, undone }
+  return { structure: result, applied, notApplied, undone, placements }
+}
+
+// Re-tailoring replaces the diff list. Keep a diff turned off if the user already
+// turned off the same edit (same original bullet, same tailored text) before.
+export function carryOverUndone(previous: TailoredResume | null | undefined, next: TailoredResume): TailoredResume {
+  const off = new Set(
+    (previous?.diffs ?? [])
+      .filter(d => d.accepted === false)
+      .map(d => `${normalizeBullet(d.original)}\u0000${normalizeBullet(d.tailored)}`)
+  )
+  if (!off.size) return next
+  return {
+    ...next,
+    diffs: next.diffs.map(d =>
+      off.has(`${normalizeBullet(d.original)}\u0000${normalizeBullet(d.tailored)}`) ? { ...d, accepted: false } : d),
+  }
 }
 
 export function applyTailoring(structure: ResumeStructure, tailored: TailoredResume): ResumeStructure {
