@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import NewApplicationPanel from '../components/NewApplicationPanel'
 import { useAuth } from '../hooks/useAuth'
+import { appliedThroughShort } from '../lib/appliedThrough'
 
 type Status = 'applied' | 'interviewing' | 'rejected' | 'offer'
 type FilterTab = 'all' | Status
@@ -489,10 +490,11 @@ export default function DashboardPage() {
         {/* Desktop table */}
         {filtered.length > 0 && (
           <div className="hidden sm:block bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
-            <div className="grid grid-cols-[110px_1fr_1fr_70px_60px_130px_36px] gap-3 px-5 py-3 border-b border-gray-100 bg-gray-50">
+            <div className="grid grid-cols-[110px_1fr_1fr_90px_70px_60px_130px_36px] gap-3 px-5 py-3 border-b border-gray-100 bg-gray-50">
               <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Date</span>
               <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Company</span>
               <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Position</span>
+              <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Source</span>
               <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide text-center">Cover Letter</span>
               <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide text-center">Fit</span>
               <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Status</span>
@@ -500,7 +502,7 @@ export default function DashboardPage() {
             </div>
             {filtered.map((app, i) => (
               <div key={app.id} onClick={() => navigate(`/applications/${app.id}`)}
-                className={`grid grid-cols-[110px_1fr_1fr_70px_60px_130px_36px] gap-3 px-5 py-3.5 items-center cursor-pointer hover:bg-gray-50 transition-colors ${
+                className={`grid grid-cols-[110px_1fr_1fr_90px_70px_60px_130px_36px] gap-3 px-5 py-3.5 items-center cursor-pointer hover:bg-gray-50 transition-colors ${
                   i !== filtered.length - 1 ? 'border-b border-gray-100' : ''
                 }`}>
                 <span className="text-sm text-gray-500">
@@ -508,6 +510,9 @@ export default function DashboardPage() {
                 </span>
                 <span className="font-semibold text-gray-900 text-sm truncate">{app.company}</span>
                 <span className="text-sm text-gray-600 truncate">{app.role}</span>
+                <span className={`text-xs truncate ${app.applied_through ? 'text-gray-500' : 'text-gray-300'}`}>
+                  {appliedThroughShort(app.applied_through) ?? '—'}
+                </span>
                 <span className={`text-sm font-medium text-center block ${app.cover_letter_submitted ? 'text-violet-600' : app.cover_letter ? 'text-gray-400' : 'text-gray-300'}`}>
                   {app.cover_letter_submitted ? '✓' : app.cover_letter ? '~' : '—'}
                 </span>
@@ -558,6 +563,9 @@ export default function DashboardPage() {
                   <span className="text-xs text-gray-400">
                     {new Date(app.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                   </span>
+                  {app.applied_through && (
+                    <span className="text-xs text-gray-500">{appliedThroughShort(app.applied_through)}</span>
+                  )}
                   {app.fit_analysis && (
                     <span className={`text-xs font-semibold ${
                       app.fit_analysis.verdict === 'Apply' ? 'text-emerald-600' :

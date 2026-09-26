@@ -13,6 +13,7 @@ import ResumeChangesView from '../components/ResumeChangesView'
 import FitReasons from '../components/FitReasons'
 import { useAbortable } from '../hooks/useAbortable'
 import { resumeFileName } from '../lib/resumeUtils'
+import { APPLIED_THROUGH, appliedThroughLabel } from '../lib/appliedThrough'
 import type { TailoredResume } from '../lib/tailorResume'
 import type { ResumeStructure } from '../lib/parseResumeStructure'
 import type { JobFitAnalysis } from '../lib/analyzeJobFit'
@@ -165,6 +166,19 @@ export default function ApplicationDetailPage() {
     setEditingUrl(false)
     setUrlError(null)
     await supabase.from('applications').update({ job_url: next }).eq('id', id)
+  }
+
+  // Saves immediately; clicking the selected option again clears it
+  async function saveAppliedThrough(value: string) {
+    if (!app) return
+    const prev = app.applied_through
+    const next = prev === value ? null : value
+    setApp({ ...app, applied_through: next })
+    const { error } = await supabase.from('applications').update({ applied_through: next }).eq('id', id)
+    if (error) {
+      setApp(a => a && { ...a, applied_through: prev })
+      alert('Could not save: ' + error.message)
+    }
   }
 
   async function saveMeta() {
@@ -337,7 +351,7 @@ export default function ApplicationDetailPage() {
           <span className="text-gray-400 text-sm">
             {new Date(app.created_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
           </span>
-          {app.applied_through && <span className="text-gray-400 text-sm capitalize">via {app.applied_through}</span>}
+          {app.applied_through && <span className="text-gray-400 text-sm">via {appliedThroughLabel(app.applied_through)}</span>}
         </div>
 
         {/* Fit Analysis */}
@@ -421,6 +435,20 @@ export default function ApplicationDetailPage() {
           ) : (
             <p className="text-sm text-gray-400 italic">No link</p>
           )}
+
+          <div className="border-t border-gray-100 my-4" />
+
+          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Applied through</p>
+          <div className="flex flex-wrap gap-2">
+            {APPLIED_THROUGH.map(opt => (
+              <button key={opt.value} onClick={() => saveAppliedThrough(opt.value)}
+                className={`text-xs font-medium px-3 py-1.5 rounded-full border transition-colors ${
+                  app.applied_through === opt.value ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'
+                }`}>
+                {opt.label}
+              </button>
+            ))}
+          </div>
 
           <div className="border-t border-gray-100 my-4" />
 

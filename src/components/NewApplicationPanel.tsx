@@ -3,21 +3,13 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
 import { api } from '../lib/api'
 import { useAbortable } from '../hooks/useAbortable'
+import { APPLIED_THROUGH, inferAppliedThrough, type AppliedThrough } from '../lib/appliedThrough'
 import type { JobFitAnalysis } from '../lib/analyzeJobFit'
 import { VERDICT_CONFIG, CATEGORY_COLOR } from '../lib/fitConfig'
 import FitReasons from './FitReasons'
 import { DEV_SAMPLE_JDS } from '../lib/devSampleJds'
 
-type AppliedThrough = 'linkedin' | 'indeed' | 'company' | 'referral' | 'other'
 type Step = 'paste' | 'analyzing' | 'analysis' | 'form'
-
-const APPLIED_THROUGH: { value: AppliedThrough; label: string }[] = [
-  { value: 'linkedin',  label: 'LinkedIn' },
-  { value: 'indeed',   label: 'Indeed' },
-  { value: 'company',  label: 'Company Website' },
-  { value: 'referral', label: 'Referral' },
-  { value: 'other',    label: 'Other' },
-]
 
 interface Props {
   onSaved: (app: any) => void
@@ -62,7 +54,11 @@ export default function NewApplicationPanel({ onSaved, onClose }: Props) {
     try {
       const trimmed = text.trim()
       const isUrl = /^https?:\/\//i.test(trimmed)
-      if (isUrl) setJobUrl(trimmed)
+      if (isUrl) {
+        setJobUrl(trimmed)
+        const guess = inferAppliedThrough(trimmed)
+        if (guess) setAppliedThrough(guess)
+      }
 
       if (isUrl && /linkedin\.com/i.test(trimmed)) {
         setStep('paste')
@@ -172,7 +168,7 @@ export default function NewApplicationPanel({ onSaved, onClose }: Props) {
           job_url: jobUrl || null,
           job_description: jobDescription || null,
           notes: null,
-          applied_through: null,
+          applied_through: inferAppliedThrough(jobUrl),
           status: 'applied',
           fit_analysis: analysis,
           user_id: user?.id,
