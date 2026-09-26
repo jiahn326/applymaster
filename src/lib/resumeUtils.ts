@@ -1,20 +1,59 @@
-import type { TailoredResume } from './tailorResume'
+import type { TailoredResume, BulletDiff } from './tailorResume'
 import type { ResumeStructure, SkillGroup, SectionKey } from './parseResumeStructure'
 
-export function applyTailoring(structure: ResumeStructure, tailored: TailoredResume): ResumeStructure {
-  const result: ResumeStructure = JSON.parse(JSON.stringify(structure))
+// Normalized form used to compare a diff's `original` with a resume bullet:
+// ignores bullet markers, curly vs straight quotes, dash variants, spacing, case,
+// and a trailing period. Never fuzzy — a changed fact ("40%" → "50%") must not match.
+export function normalizeBullet(text: string): string {
+  let t = (text ?? '').normalize('NFKC').replace(/^[\s•●○■▪◦‣∙·*–—-]+/, '')
+  t = t.replace(/[‘’]/g, "'").replace(/[“”]/g, '"').replace(/[–—]/g, '-')
+  return t.replace(/\s+/g, ' ').trim().replace(/\.$/, '').toLowerCase()
+}
 
-  for (const diff of tailored.diffs) {
-    if (!diff.accepted) continue
-    for (const exp of result.experience) {
-      if (exp.company === diff.section || exp.title === diff.section) {
-        if (exp.bullets[diff.index] !== undefined) exp.bullets[diff.index] = diff.tailored
-      }
+export interface TailoringResolution {
+  structure: ResumeStructure
+  applied: BulletDiff[]
+  notApplied: BulletDiff[]   // accepted, but no bullet in the resume matches its original text
+  undone: BulletDiff[]       // turned off by the user (accepted: false)
+}
+
+// Applies accepted diffs only where the original text is actually in the resume:
+//   1. the bullet at diff.index in a matching section, or
+//   2. if not there, a bullet with that text that appears exactly once in the section.
+// Anything else is reported as not applied instead of overwriting a different bullet.
+export function resolveTailoring(structure: ResumeStructure, tailored: TailoredResume): TailoringResolution {
+  const result: ResumeStructure = JSON.parse(JSON.stringify(structure))
+  const applied: BulletDiff[] = [], notApplied: BulletDiff[] = [], undone: BulletDiff[] = []
+  // Bullets already replaced, so two diffs never land on the same bullet
+  const usedAt = new Map<string[], Set<number>>()
+  const isUsed = (b: string[], i: number) => usedAt.get(b)?.has(i) ?? false
+  const markUsed = (b: string[], i: number) => { usedAt.set(b, (usedAt.get(b) ?? new Set()).add(i)) }
+
+  for (const diff of tailored.diffs ?? []) {
+    if (!diff.accepted) { undone.push(diff); continue }
+    const original = normalizeBullet(diff.original ?? '')
+    const lists: string[][] = [
+      ...result.experience.filter(e => e.company === diff.section || e.title === diff.section).map(e => e.bullets),
+      ...result.projects.filter(p => p.name === diff.section || p.name.startsWith(diff.section)).map(p => p.bullets),
+    ]
+    if (!original || !lists.length) { notApplied.push(diff); continue }
+
+    // 1. At the saved index (every matching entry — identical bullets get the same edit)
+    const atIndex = lists.filter(b => b[diff.index] !== undefined && !isUsed(b, diff.index) && normalizeBullet(b[diff.index]) === original)
+    if (atIndex.length) {
+      for (const b of atIndex) { b[diff.index] = diff.tailored; markUsed(b, diff.index) }
+      applied.push(diff)
+      continue
     }
-    for (const proj of result.projects) {
-      if (proj.name === diff.section || proj.name.startsWith(diff.section)) {
-        if (proj.bullets[diff.index] !== undefined) proj.bullets[diff.index] = diff.tailored
-      }
+    // 2. Moved within the section: only when the text appears exactly once
+    const hits = lists.flatMap(b => b.map((text, i) => ({ b, i, text })))
+      .filter(h => !isUsed(h.b, h.i) && normalizeBullet(h.text) === original)
+    if (hits.length === 1) {
+      hits[0].b[hits[0].i] = diff.tailored
+      markUsed(hits[0].b, hits[0].i)
+      applied.push(diff)
+    } else {
+      notApplied.push(diff)
     }
   }
 
@@ -25,7 +64,11 @@ export function applyTailoring(structure: ResumeStructure, tailored: TailoredRes
     proj.bullets = proj.bullets.map(b => b.replace(/\s*\[add metric:[^\]]*\]/gi, '').trim())
   }
 
-  return result
+  return { structure: result, applied, notApplied, undone }
+}
+
+export function applyTailoring(structure: ResumeStructure, tailored: TailoredResume): ResumeStructure {
+  return resolveTailoring(structure, tailored).structure
 }
 
 export function skillGroups(structure: ResumeStructure): SkillGroup[] {

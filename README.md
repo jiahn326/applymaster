@@ -45,7 +45,7 @@ flowchart LR
 
 ## Design decisions
 
-**Store diffs, not full resumes.** The resume structure lives in the `resumes` table, and each application only stores its diffs. One resume can be tailored to many job postings, and the comparison view comes for free.
+**Store diffs, plus the resume they were made from.** Each application stores its diffs along with a copy of the resume version used for tailoring, so uploading a new resume never changes an earlier result. Every diff is applied only where its original text is actually found; anything that doesn't match is reported instead of overwriting a different bullet.
 
 **Keep the API key on the server.** All Claude calls go through a Supabase Edge Function, so the API key never reaches the browser.
 
@@ -95,8 +95,15 @@ Start the development server:
 npm run dev
 ```
 
+## Testing
+
+Unit tests cover the resume logic that decides what ends up in an exported PDF: how saved tailoring changes are matched to resume bullets (changes whose original text no longer matches are reported, never applied to a different bullet), duplicated label removal, and export file names.
+
+```bash
+npm test
+```
+
 ## Roadmap
 
-- Validate saved diffs against the current resume, so edits to the original resume never misapply older tailoring results
 - Server-side checks on AI output (length limits, no placeholder text)
 - More export templates

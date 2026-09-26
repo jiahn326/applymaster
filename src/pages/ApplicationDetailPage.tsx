@@ -12,7 +12,7 @@ import { generateCoverLetter } from '../lib/generateCoverLetter'
 import ResumeChangesView from '../components/ResumeChangesView'
 import FitReasons from '../components/FitReasons'
 import { useAbortable } from '../hooks/useAbortable'
-import { resumeFileName } from '../lib/resumeUtils'
+import { resumeFileName, resolveTailoring } from '../lib/resumeUtils'
 import { APPLIED_THROUGH, appliedThroughLabel } from '../lib/appliedThrough'
 import type { TailoredResume } from '../lib/tailorResume'
 import type { ResumeStructure } from '../lib/parseResumeStructure'
@@ -49,6 +49,7 @@ export default function ApplicationDetailPage() {
   const [app, setApp] = useState<Application | null>(null)
   const [structure, setStructure] = useState<ResumeStructure | null>(null)
   const [rawText, setRawText] = useState('')
+  const [resumeId, setResumeId] = useState<string | undefined>()
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<'resume' | 'cover' | 'why'>('resume')
   const [toast, setToast] = useState<string | null>(null)
@@ -127,6 +128,7 @@ export default function ApplicationDetailPage() {
       const resume = resumesData?.find((r: any) => r.id === activeId) ?? resumesData?.[0]
       setStructure(resume?.content?.structure ?? null)
       setRawText(resume?.content?.raw_text ?? '')
+      setResumeId(resume?.id)
       if (a?.cover_letter) setCoverLetter(a.cover_letter)
       setCoverLetterSubmitted(a?.cover_letter_submitted ?? false)
       setLoading(false)
@@ -223,7 +225,7 @@ export default function ApplicationDetailPage() {
     const signal = tailorJob.start()
     setTailoring(true)
     try {
-      const result = await tailorResume(rawText, app.job_description, signal)
+      const result = await tailorResume({ id: resumeId, rawText, structure }, app.job_description, signal)
       if (signal.aborted) return
       await supabase.from('applications').update({ tailored_resume: result }).eq('id', id)
       setApp({ ...app, tailored_resume: result })
@@ -299,7 +301,23 @@ export default function ApplicationDetailPage() {
     </div>
   )
 
-  const fileName = resumeFileName(structure?.header.name)
+  // Show and export a result against the resume it was tailored from; older results
+  // (no saved base) fall back to the current resume and may not fully apply.
+  const tailoredBase = app.tailored_resume?.base
+  const viewStructure = tailoredBase?.structure ?? structure
+  const viewRawText = tailoredBase?.rawText ?? rawText
+  const resolution = app.tailored_resume && viewStructure ? resolveTailoring(viewStructure, app.tailored_resume) : null
+  const notAppliedCount = resolution?.notApplied.length ?? 0
+  const suggestedCount = notAppliedCount + (resolution?.applied.length ?? 0)
+  const fileName = resumeFileName(viewStructure?.header.name)
+
+  function handleExportPdf() {
+    if (!app?.tailored_resume || !viewStructure) return
+    if (notAppliedCount > 0 && !confirm(
+      `${notAppliedCount} of ${suggestedCount} suggested changes couldn't be applied to this resume, so the PDF won't include them.\n\nDownload anyway? Choose Cancel to Re-tailor first.`
+    )) return
+    lazyExportPdf(viewStructure, app.tailored_resume, fileName, viewRawText)
+  }
 
   return (
     <div className="min-h-screen bg-[#F7F8FA]">
@@ -497,19 +515,32 @@ export default function ApplicationDetailPage() {
             {/* Resume tab */}
             {activeTab === 'resume' && (
               <div className="space-y-5">
-                {app.tailored_resume && structure ? (
+                {app.tailored_resume && viewStructure ? (
                   <>
                     {/* Export row + Re-tailor */}
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide mr-1">Export</span>
-                      <button onClick={() => lazyExportPdf(structure, app.tailored_resume!, fileName, rawText)}
+                      <button onClick={handleExportPdf}
                         className="bg-gray-50 border border-gray-200 text-gray-700 font-medium px-3 py-1.5 rounded-lg hover:bg-gray-100 transition-all text-xs">↓ PDF</button>
                       <button onClick={handleTailor} disabled={tailoring || !app.job_description}
                         className="ml-auto bg-gray-900 hover:bg-gray-700 disabled:opacity-40 text-white font-medium px-3 py-1.5 rounded-lg transition-all text-xs">
                         {tailoring ? '✨ Re-tailoring...' : '↺ Re-tailor'}
                       </button>
                     </div>
-                    <ResumeChangesView tailored={app.tailored_resume} structure={structure} rawText={rawText} />
+                    {notAppliedCount > 0 && (
+                      <div className="flex items-start sm:items-center justify-between gap-3 flex-col sm:flex-row bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+                        <p className="text-xs text-amber-800 leading-relaxed">
+                          {tailoredBase
+                            ? `${notAppliedCount} of ${suggestedCount} suggested changes couldn't be matched to the resume they were made from.`
+                            : `This result was made from an earlier version of your resume, so ${notAppliedCount} of ${suggestedCount} changes can't be applied to your current resume.`}
+                        </p>
+                        <button onClick={handleTailor} disabled={tailoring || !app.job_description}
+                          className="shrink-0 bg-amber-600 hover:bg-amber-700 disabled:opacity-40 text-white font-medium px-3 py-1.5 rounded-lg transition-colors text-xs">
+                          {tailoring ? '✨ Re-tailoring...' : '↺ Re-tailor'}
+                        </button>
+                      </div>
+                    )}
+                    <ResumeChangesView tailored={app.tailored_resume} structure={viewStructure} rawText={viewRawText} />
                   </>
                 ) : (
                   <button onClick={handleTailor} disabled={tailoring || !app.job_description}

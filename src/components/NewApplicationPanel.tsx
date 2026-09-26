@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
 import { api } from '../lib/api'
 import { useAbortable } from '../hooks/useAbortable'
+import type { ResumeStructure } from '../lib/parseResumeStructure'
 import { APPLIED_THROUGH, inferAppliedThrough, type AppliedThrough } from '../lib/appliedThrough'
 import type { JobFitAnalysis } from '../lib/analyzeJobFit'
 import { VERDICT_CONFIG, CATEGORY_COLOR } from '../lib/fitConfig'
@@ -29,6 +30,8 @@ export default function NewApplicationPanel({ onSaved, onClose }: Props) {
   const [appliedThrough, setAppliedThrough] = useState<AppliedThrough | null>(null)
   const [analysis, setAnalysis] = useState<JobFitAnalysis | null>(null)
   const [resumeRawText, setResumeRawText] = useState<string | undefined>()
+  // The active resume at analysis time; auto-tailoring saves it with the result
+  const [resumeSource, setResumeSource] = useState<{ id?: string; structure?: ResumeStructure | null } | null>(null)
   const [saving, setSaving] = useState(false)
   const [tailoring, setTailoring] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -88,6 +91,7 @@ export default function NewApplicationPanel({ onSaved, onClose }: Props) {
       const rawText = activeResume?.content?.raw_text as string | undefined
       const currentLocation = activeResume?.content?.current_location as string | undefined
       setResumeRawText(rawText)
+      setResumeSource(activeResume ? { id: activeResume.id, structure: activeResume.content?.structure ?? null } : null)
 
       setAnalyzeStep('analyzing')
       const result = await Promise.race([
@@ -185,7 +189,7 @@ export default function NewApplicationPanel({ onSaved, onClose }: Props) {
         setTailoring(true)
         try {
           const { tailorResume } = await import('../lib/tailorResume')
-          const tailored = await tailorResume(resumeRawText, jobDescription, signal)
+          const tailored = await tailorResume({ ...resumeSource, rawText: resumeRawText }, jobDescription, signal)
           if (signal.aborted) return
           await supabase.from('applications').update({ tailored_resume: tailored }).eq('id', data.id)
           onSaved({ ...data, tailored_resume: tailored })
