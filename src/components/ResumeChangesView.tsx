@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react'
 import type { TailoredResume } from '../lib/tailorResume'
 import type { ResumeStructure } from '../lib/parseResumeStructure'
-import { applyTailoring, skillGroups, sectionTitle } from '../lib/resumeUtils'
+import { applyTailoring, skillGroups, sectionTitle, labeledLine } from '../lib/resumeUtils'
 
 interface Props {
   tailored: TailoredResume
@@ -48,7 +48,7 @@ function ResumePreview({ structure, rawText, changedSections = [], copyable = fa
   scrollRef?: React.RefObject<HTMLDivElement | null>
   onScroll?: (e: React.UIEvent<HTMLDivElement>) => void
 }) {
-  const skills = skillGroups(structure)
+  const skills = skillGroups(structure).map(g => labeledLine(g.label, g.items.join(', ')))
   return (
     <div ref={scrollRef} onScroll={onScroll} className="text-xs leading-relaxed p-4 bg-white border border-gray-200 rounded-xl overflow-y-auto max-h-[600px]">
       {/* Header */}
@@ -63,7 +63,7 @@ function ResumePreview({ structure, rawText, changedSections = [], copyable = fa
           <div key={i} className="mb-2">
             <div className="flex justify-between"><span className="font-bold">{edu.school}</span><span>{edu.location}</span></div>
             <div className="flex justify-between text-gray-600"><span className="italic">{edu.degree}</span><span className="italic">{edu.dates}</span></div>
-            {edu.awards && <div className="text-gray-600"><span className="font-semibold">Awards: </span>{edu.awards}</div>}
+            {edu.awards && <div className="text-gray-600"><span className="font-semibold">Awards: </span>{labeledLine('Awards', edu.awards).text}</div>}
           </div>
         ))}
       </ResumeSection>
@@ -72,11 +72,11 @@ function ResumePreview({ structure, rawText, changedSections = [], copyable = fa
       <ResumeSection title={sectionTitle(structure, 'skills', rawText)}>
         <div className="group relative">
           {skills.map((g, i) => (
-            <div key={i}><span className="font-bold">{g.label}: </span>{g.items.join(', ')}</div>
+            <div key={i}><span className="font-bold">{g.label}: </span>{g.text}</div>
           ))}
           {copyable && onCopy && (
             <div className="absolute top-0 right-0">
-              <CopyButton text={skills.map(g => `${g.label}: ${g.items.join(', ')}`).join('\n')} copyKey="skills" copiedKey={copiedKey ?? null} onCopy={onCopy} />
+              <CopyButton text={skills.map(g => `${g.label}: ${g.text}`).join('\n')} copyKey="skills" copiedKey={copiedKey ?? null} onCopy={onCopy} />
             </div>
           )}
         </div>

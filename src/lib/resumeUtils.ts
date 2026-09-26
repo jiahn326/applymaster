@@ -61,3 +61,15 @@ export function sectionTitle(structure: ResumeStructure, key: SectionKey, rawTex
     .find(l => l.length <= 40 && l === l.toUpperCase() && TITLE_PATTERNS[key].test(l))
   return line ?? DEFAULT_TITLES[key]
 }
+
+// Renderers draw the label in bold and the value after it. Parsed values sometimes
+// repeat the label ("Awards: Dean's List"), and parsed labels sometimes carry their
+// own colon, so normalize both to avoid "Awards: Awards:" or "Tools::".
+export function labeledLine(label: string, value: string): { label: string; text: string } {
+  const clean = label.trim().replace(/\s*[:：]\s*$/, '')
+  const escaped = clean.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const prefix = new RegExp(`^\\s*${escaped}\\s*[:：\\-–—]\\s*`, 'i')
+  let text = value.trim()
+  while (prefix.test(text)) text = text.replace(prefix, '')
+  return { label: clean, text }
+}

@@ -2,7 +2,7 @@ import JSZip from 'jszip'
 import { jsPDF } from 'jspdf'
 import type { TailoredResume } from './tailorResume'
 import type { ResumeStructure } from './parseResumeStructure'
-import { applyTailoring, skillGroups, sectionTitle } from './resumeUtils'
+import { applyTailoring, skillGroups, sectionTitle, labeledLine } from './resumeUtils'
 
 // ─── DOCX Export (minimal OOXML, Google Docs compatible) ────────────────────
 
@@ -66,13 +66,14 @@ export async function exportDocx(
   for (const edu of s.education) {
     paras.push(twoColPara(edu.school, edu.location, true))
     paras.push(twoColPara(edu.degree, edu.dates, false, true))
-    if (edu.awards) paras.push(p(r('Awards: ', { bold: true, sz: 20 }) + r(edu.awards, { sz: 20 }), { spAfter: 40 }))
+    if (edu.awards) paras.push(p(r('Awards: ', { bold: true, sz: 20 }) + r(labeledLine('Awards', edu.awards).text, { sz: 20 }), { spAfter: 40 }))
   }
 
   // Skills
   paras.push(sectionHeader(sectionTitle(s, 'skills', rawText)))
   for (const g of skillGroups(s)) {
-    paras.push(p(r(`${g.label}: `, { bold: true, sz: 20 }) + r(g.items.join(', '), { sz: 20 }), { spAfter: 60 }))
+    const { label, text } = labeledLine(g.label, g.items.join(', '))
+    paras.push(p(r(`${label}: `, { bold: true, sz: 20 }) + r(text, { sz: 20 }), { spAfter: 60 }))
   }
 
   // Experience
@@ -259,7 +260,9 @@ export async function exportPdf(
       y += 14 * ls
     }
 
-    function boldLabel(label: string, value: string) {
+    function boldLabel(rawLabel: string, rawValue: string) {
+      const line = labeledLine(rawLabel, rawValue)
+      const label = `${line.label}: `, value = line.text
       doc.setFont(font, 'bold')
       doc.setFontSize(body)
       const labelWidth = doc.getTextWidth(label)
@@ -300,13 +303,13 @@ export async function exportPdf(
     for (const edu of s.education) {
       twoCol(edu.school, edu.location, true)
       twoCol(edu.degree, edu.dates, false, true)
-      if (edu.awards) boldLabel('Awards: ', edu.awards)
+      if (edu.awards) boldLabel('Awards', edu.awards)
     }
     y += 4 * ls
 
     // Skills
     sectionHeader(titles.skills)
-    for (const g of skillGroups(s)) boldLabel(`${g.label}: `, g.items.join(', '))
+    for (const g of skillGroups(s)) boldLabel(g.label, g.items.join(', '))
     y += 4 * ls
 
     // Experience — group consecutive entries by company
@@ -552,12 +555,13 @@ export function exportGoogleDocs(
   for (const edu of s.education) {
     rows.push(twoCol(edu.school, edu.location, true))
     rows.push(twoCol(edu.degree, edu.dates, false, true))
-    if (edu.awards) rows.push(`<p style="font-size:10pt;margin:1pt 0;"><strong>Awards: </strong>${e(edu.awards)}</p>`)
+    if (edu.awards) rows.push(`<p style="font-size:10pt;margin:1pt 0;"><strong>Awards: </strong>${e(labeledLine('Awards', edu.awards).text)}</p>`)
   }
 
   rows.push(secHeader(sectionTitle(s, 'skills', rawText)))
   for (const g of skillGroups(s)) {
-    rows.push(`<p style="font-size:10pt;margin:1pt 0;"><strong>${e(g.label)}: </strong>${e(g.items.join(', '))}</p>`)
+    const { label, text } = labeledLine(g.label, g.items.join(', '))
+    rows.push(`<p style="font-size:10pt;margin:1pt 0;"><strong>${e(label)}: </strong>${e(text)}</p>`)
   }
 
   rows.push(secHeader(sectionTitle(s, 'experience', rawText)))
