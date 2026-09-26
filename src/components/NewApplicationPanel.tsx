@@ -25,7 +25,8 @@ export default function NewApplicationPanel({ onSaved, onClose }: Props) {
   const [jobUrl, setJobUrl] = useState('')
   const [jobDescription, setJobDescription] = useState('')
   const [notes, setNotes] = useState('')
-  const [appliedThrough, setAppliedThrough] = useState<AppliedThrough>('linkedin')
+  // Nothing selected until the user picks one or a pasted URL tells us
+  const [appliedThrough, setAppliedThrough] = useState<AppliedThrough | null>(null)
   const [analysis, setAnalysis] = useState<JobFitAnalysis | null>(null)
   const [resumeRawText, setResumeRawText] = useState<string | undefined>()
   const [saving, setSaving] = useState(false)
@@ -56,13 +57,12 @@ export default function NewApplicationPanel({ onSaved, onClose }: Props) {
       const isUrl = /^https?:\/\//i.test(trimmed)
       if (isUrl) {
         setJobUrl(trimmed)
-        const guess = inferAppliedThrough(trimmed)
-        if (guess) setAppliedThrough(guess)
+        setAppliedThrough(inferAppliedThrough(trimmed))
       }
 
       if (isUrl && /linkedin\.com/i.test(trimmed)) {
         setStep('paste')
-        setError('LinkedIn blocks URL scraping. Please paste the job description text directly instead.')
+        setError("LinkedIn blocks URL scraping. Please paste the job description text instead — we'll keep the LinkedIn link.")
         return
       }
 
@@ -405,7 +405,7 @@ export default function NewApplicationPanel({ onSaved, onClose }: Props) {
               <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Applied through</label>
               <div className="flex flex-wrap gap-2">
                 {APPLIED_THROUGH.map(opt => (
-                  <button key={opt.value} onClick={() => setAppliedThrough(opt.value)}
+                  <button key={opt.value} onClick={() => setAppliedThrough(v => v === opt.value ? null : opt.value)}
                     className={`text-xs font-medium px-3 py-1.5 rounded-full border transition-colors ${
                       appliedThrough === opt.value ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'
                     }`}>
@@ -451,7 +451,7 @@ export default function NewApplicationPanel({ onSaved, onClose }: Props) {
             </button>
           )}
           <button
-            onClick={() => { setPasteText(''); setDuplicate(null); setStep('paste') }}
+            onClick={() => { setPasteText(''); setDuplicate(null); setJobUrl(''); setAppliedThrough(null); setStep('paste') }}
             className="w-full text-gray-500 hover:text-gray-800 font-medium py-2 rounded-xl transition-colors text-sm"
           >
             Try a different job

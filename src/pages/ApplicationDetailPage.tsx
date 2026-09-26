@@ -168,17 +168,23 @@ export default function ApplicationDetailPage() {
     await supabase.from('applications').update({ job_url: next }).eq('id', id)
   }
 
-  // Saves immediately; clicking the selected option again clears it
-  async function saveAppliedThrough(value: string) {
+  // Saves immediately; clicking the selected option again clears it. Writes are
+  // queued so rapid clicks reach the database in click order (last click wins).
+  const sourceQueue = useRef<Promise<unknown>>(Promise.resolve())
+  const sourceSeq = useRef(0)
+  function saveAppliedThrough(value: string) {
     if (!app) return
     const prev = app.applied_through
     const next = prev === value ? null : value
+    const seq = ++sourceSeq.current
     setApp({ ...app, applied_through: next })
-    const { error } = await supabase.from('applications').update({ applied_through: next }).eq('id', id)
-    if (error) {
-      setApp(a => a && { ...a, applied_through: prev })
-      alert('Could not save: ' + error.message)
-    }
+    sourceQueue.current = sourceQueue.current.then(async () => {
+      const { error } = await supabase.from('applications').update({ applied_through: next }).eq('id', id)
+      if (error && seq === sourceSeq.current) {
+        setApp(a => a && { ...a, applied_through: prev })
+        alert('Could not save: ' + error.message)
+      }
+    })
   }
 
   async function saveMeta() {
