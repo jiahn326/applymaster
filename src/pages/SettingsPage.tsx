@@ -69,13 +69,16 @@ export default function SettingsPage() {
         <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
           <h2 className="text-sm font-semibold text-gray-900 mb-1">Cover Letter Template</h2>
           <p className="text-xs text-gray-400 mb-4">
-            Claude will fill in the placeholders based on the company and JD. Available placeholders:{' '}
+            Filled in automatically:{' '}
             <code className="bg-gray-100 px-1 rounded">[NAME]</code>{' '}
             <code className="bg-gray-100 px-1 rounded">[CONTACT]</code>{' '}
-            <code className="bg-gray-100 px-1 rounded">[TODAY_DATE]</code>{' '}
-            <code className="bg-gray-100 px-1 rounded">[COMPANY_NAME]</code>{' '}
-            <code className="bg-gray-100 px-1 rounded">[POSITION_NAME]</code>{' '}
-            <code className="bg-gray-100 px-1 rounded">[BODY]</code>
+            <code className="bg-gray-100 px-1 rounded">[DATE]</code>{' '}
+            <code className="bg-gray-100 px-1 rounded">[COMPANY]</code>{' '}
+            <code className="bg-gray-100 px-1 rounded">[POSITION]</code>{' '}
+            (the longer forms like <code className="bg-gray-100 px-1 rounded">[COMPANY_NAME]</code> work too).
+            Everything between your greeting ("Dear …,") and your closing ("Thank you…" / "Sincerely") is tailored to each job
+            using your resume — any <code className="bg-gray-100 px-1 rounded">[NOTE]</code> there, like{' '}
+            <code className="bg-gray-100 px-1 rounded">[BODY]</code>, is written for you. The greeting and closing stay exactly as you wrote them.
           </p>
 
           {loading ? (

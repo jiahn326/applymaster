@@ -12,7 +12,7 @@ import { generateCoverLetter } from '../lib/generateCoverLetter'
 import ResumeChangesView from '../components/ResumeChangesView'
 import FitReasons from '../components/FitReasons'
 import { useAbortable } from '../hooks/useAbortable'
-import { resumeFileName, resolveTailoring, carryOverUndone } from '../lib/resumeUtils'
+import { resumeFileName, resolveTailoring, carryOverUndone, resumeToText } from '../lib/resumeUtils'
 import { APPLIED_THROUGH, appliedThroughLabel } from '../lib/appliedThrough'
 import type { TailoredResume } from '../lib/tailorResume'
 import type { ResumeStructure } from '../lib/parseResumeStructure'
@@ -265,7 +265,13 @@ export default function ApplicationDetailPage() {
     setGeneratingCL(true)
     setCoverLetterError(null)
     try {
-      const result = await generateCoverLetter(app.company, app.role, app.job_description, structure?.header, signal)
+      // The letter reads the resume actually being sent: this application's tailored
+      // version (undone changes excluded), or the current resume if it wasn't tailored
+      const base = app.tailored_resume?.base?.structure ?? structure
+      const resumeText = app.tailored_resume && base
+        ? resumeToText(resolveTailoring(base, app.tailored_resume).structure)
+        : rawText || undefined
+      const result = await generateCoverLetter(app.company, app.role, app.job_description, structure?.header, resumeText, signal)
       if (signal.aborted) return
       setCoverLetter(result)
       await supabase.from('applications').update({ cover_letter: result }).eq('id', app.id)

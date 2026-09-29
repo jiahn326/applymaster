@@ -162,3 +162,31 @@ export function resumeFileName(name?: string): string {
     .replace(/\s+/g, '_')
   return base ? `${base}_Resume` : 'Resume'
 }
+
+// Plain-text rendering of a resume structure, e.g. to give the cover letter
+// writer the tailored resume the candidate is actually sending.
+export function resumeToText(s: ResumeStructure): string {
+  const lines: string[] = [s.header.name, s.header.contact, '']
+  if (s.education.length) {
+    lines.push(sectionTitle(s, 'education'))
+    for (const e of s.education) {
+      lines.push(`${e.school}, ${e.location} — ${e.degree}, ${e.dates}`)
+      if (e.awards) lines.push(`Awards: ${labeledLine('Awards', e.awards).text}`)
+    }
+    lines.push('')
+  }
+  const skills = skillGroups(s)
+  if (skills.length) {
+    lines.push(sectionTitle(s, 'skills'), ...skills.map(g => { const l = labeledLine(g.label, g.items.join(', ')); return `${l.label}: ${l.text}` }), '')
+  }
+  if (s.experience.length) {
+    lines.push(sectionTitle(s, 'experience'))
+    for (const e of s.experience) lines.push(`${e.title} — ${e.company}, ${e.location} (${e.dates})`, ...e.bullets.map(b => `- ${b}`))
+    lines.push('')
+  }
+  if (s.projects.length) {
+    lines.push(sectionTitle(s, 'projects'))
+    for (const p of s.projects) lines.push(`${p.name}${p.tech ? ` (${p.tech})` : ''}${p.dates ? ` — ${p.dates}` : ''}`, ...p.bullets.map(b => `- ${b}`))
+  }
+  return lines.join('\n').trim()
+}

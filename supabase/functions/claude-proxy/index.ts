@@ -2,6 +2,7 @@ import Anthropic from 'npm:@anthropic-ai/sdk'
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import { validateDiffs } from './validateDiffs.ts'
 import { FIT_RULES, FIT_SCHEMA, computeFit } from './fit.ts'
+import { fillFixedPlaceholders, splitTemplate, assembleLetter, middleWordRange, jdOnlyTerms, unsupportedTerms, LETTER_RULES, LETTER_TARGET_CHARS } from './coverLetter.ts'
 
 const ALLOWED_ORIGIN = Deno.env.get('ALLOWED_ORIGIN') ?? '*'
 
@@ -64,7 +65,7 @@ Deno.serve(async (req) => {
     let result
     if (action === 'tailorResume')            result = await tailorResume(client, payload.resumeRawText, payload.jobDescription)
     else if (action === 'analyzeJobFit')      result = await analyzeJobFit(client, payload.resumeRawText, payload.jobDescription, payload.currentLocation)
-    else if (action === 'generateCoverLetter') result = await generateCoverLetter(client, payload.company, payload.role, payload.jobDescription, payload.header, payload.today, payload.template)
+    else if (action === 'generateCoverLetter') result = await generateCoverLetter(client, payload.company, payload.role, payload.jobDescription, payload.header, payload.today, payload.template, payload.resumeText)
     else if (action === 'extractJobInfo')     result = await extractJobInfo(client, payload.content)
     else if (action === 'analyzeAndExtract')  result = await analyzeAndExtract(client, payload.content, payload.resumeRawText, payload.currentLocation)
     else if (action === 'parseResumeStructure') result = await parseResumeStructure(client, payload.rawText)
@@ -152,13 +153,13 @@ ${FIT_SCHEMA}`, 8000)
   return computeFit(JSON.parse(text))
 }
 
-async function generateCoverLetter(client: Claude, company: string, role: string, jobDescription: string, header?: { name: string; contact: string }, today?: string, customTemplate?: string) {
+async function generateCoverLetter(client: Claude, company: string, role: string, jobDescription: string, header?: { name: string; contact: string }, today?: string, customTemplate?: string, resumeText?: string) {
   today = today ?? new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
   const headerName = header?.name ?? 'My Name'
   const headerContact = header?.contact ?? 'phone | email | linkedin'
 
-  const DEFAULT_TEMPLATE = `${headerName}
-${headerContact}
+  const DEFAULT_TEMPLATE = `[NAME]
+[CONTACT]
 
 [TODAY_DATE]
 
@@ -169,31 +170,56 @@ Dear Hiring Manager,
 Thank you for considering my application. I look forward to discussing how my background would benefit your team.
 
 Sincerely,
-${headerName}`
+[NAME]`
 
-  const template = customTemplate
-    ? customTemplate.replace('[NAME]', headerName).replace('[CONTACT]', headerContact)
-    : DEFAULT_TEMPLATE
-
-  const text = await callClaude(client, `Fill in this cover letter template for a job application. Replace placeholders with specific, relevant content based on the JD.
-
-COMPANY: ${company}
+  // Code fills the fixed placeholders and keeps greeting/closing verbatim; the model writes the middle
+  const template = fillFixedPlaceholders(customTemplate || DEFAULT_TEMPLATE, { company, role, today, name: headerName, contact: headerContact })
+  const parts = splitTemplate(template)
+  const [minWords, maxWords] = middleWordRange(parts)
+  // JD tools the resume never mentions: named up front so they're never claimed as experience
+  const known = `${template} ${company} ${role}`
+  const notOnResume = resumeText ? jdOnlyTerms(jobDescription, resumeText, known) : []
+  const context = `COMPANY: ${company}
 ROLE: ${role}
-TODAY'S DATE: ${today}
 
 JOB DESCRIPTION:
 ${jobDescription}
 
+${resumeText ? `CANDIDATE'S RESUME (the only source of facts about the candidate):\n${resumeText}` : '(No resume provided — keep the draft\'s facts as written and add no new claims about the candidate.)'}
+
+${LETTER_RULES}${notOnResume.length ? `
+
+NOT ON THE RESUME: ${notOnResume.join(', ')}.
+The job description mentions these, but the resume doesn't. Never present any of them as something the candidate has used, knows, or has experience with. Mention one only as part of what the role involves, or leave it out.` : ''}`
+
+  if (parts) {
+    const bodyPrompt = `You are writing the body of a cover letter for this job. The greeting and closing are handled separately — write only the body paragraphs.
+
+${context}
+
+THE CANDIDATE'S DRAFT OF THE BODY (their voice and structure; tailor it to this job):
+${parts.middle}
+
+LENGTH: ${minWords}-${maxWords} words in total. Keep sentences tight and don't pad.
+
+Return only the body paragraphs, separated by blank lines. No greeting, no sign-off, no markdown.`
+    const middle = await callClaude(client, bodyPrompt, 8000)
+    // Log (not retry) when the letter still names one, so it can be spotted in the logs
+    const named = resumeText ? unsupportedTerms(middle, jobDescription, resumeText, known) : []
+    if (named.length) console.log('generateCoverLetter names terms not on resume (check framing):', named.join(', '))
+    return { text: assembleLetter(parts, middle) }
+  }
+
+  // Templates without a recognizable greeting/closing: the model fills the whole thing
+  const text = await callClaude(client, `Complete this cover letter template for a job application.
+
+${context}
+
 TEMPLATE:
 ${template}
 
-Rules:
-- Replace [TODAY_DATE] with today's date
-- Replace [COMPANY_NAME] with the company name
-- Replace [POSITION_NAME] with the role
-- Replace [BODY] with 2-3 paragraphs connecting the candidate's background to the JD
-- Keep the overall structure and tone of the template
-- Return only the completed letter text, no markdown
+- Keep the template's greeting, closing, and sign-off lines exactly as written; tailor the rest.
+- LENGTH: about ${LETTER_TARGET_CHARS} characters for the whole letter.
 
 Return only the completed letter text, no markdown.`, 8000)
 

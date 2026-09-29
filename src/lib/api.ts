@@ -18,9 +18,9 @@ export const api = {
   analyzeJobFit: (resumeRawText: string, jobDescription: string, currentLocation?: string, signal?: AbortSignal) =>
     callProxy('analyzeJobFit', { resumeRawText, jobDescription, currentLocation }, signal),
 
-  generateCoverLetter: (company: string, role: string, jobDescription: string, header?: { name: string; contact: string }, template?: string, signal?: AbortSignal) => {
+  generateCoverLetter: (company: string, role: string, jobDescription: string, header?: { name: string; contact: string }, template?: string, resumeText?: string, signal?: AbortSignal) => {
     const today = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
-    return callProxy('generateCoverLetter', { company, role, jobDescription, header, today, template }, signal).then(d => d.text as string)
+    return callProxy('generateCoverLetter', { company, role, jobDescription, header, today, template, resumeText }, signal).then(d => d.text as string)
   },
 
   extractJobInfo: (content: string, signal?: AbortSignal) =>
