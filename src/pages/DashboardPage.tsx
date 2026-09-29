@@ -5,7 +5,7 @@ import NewApplicationPanel from '../components/NewApplicationPanel'
 import { useAuth } from '../hooks/useAuth'
 import { APPLIED_THROUGH, appliedThroughShort } from '../lib/appliedThrough'
 import SourceIcon from '../components/SourceIcon'
-import { STATUS_CONFIG, TRACKED_STATUSES, FOLLOW_UP_DAYS, needsFollowUp, daysSince, type AppStatus } from '../lib/status'
+import { STATUS_CONFIG, TRACKED_STATUSES, FOLLOW_UP_DAYS, needsFollowUp, daysSince, responseStats, type AppStatus } from '../lib/status'
 
 type Status = AppStatus
 type FilterTab = 'all' | 'followup' | Status
@@ -22,6 +22,22 @@ interface Application {
   cover_letter: string | null
   cover_letter_submitted: boolean
   fit_analysis: { verdict: 'Apply' | 'Maybe' | 'Skip'; overallScore: number } | null
+}
+
+type SortKey = 'newest' | 'oldest' | 'fit' | 'company'
+const SORT_OPTIONS: { value: SortKey; label: string }[] = [
+  { value: 'newest',  label: 'Newest first' },
+  { value: 'oldest',  label: 'Oldest first' },
+  { value: 'fit',     label: 'Fit: high → low' },
+  { value: 'company', label: 'Company A → Z' },
+]
+const SORT_STORAGE_KEY = 'applymaster.dashboardSort'
+
+function readSort(): SortKey {
+  try {
+    const v = localStorage.getItem(SORT_STORAGE_KEY)
+    return SORT_OPTIONS.some(o => o.value === v) ? (v as SortKey) : 'newest'
+  } catch { return 'newest' }
 }
 
 const FILTER_TABS: { value: FilterTab; label: string }[] = [
@@ -225,6 +241,12 @@ export default function DashboardPage() {
   const [filter, setFilter] = useState<FilterTab>('all')
   // Saved postings (not applied yet) live in their own tab, apart from tracked applications
   const [view, setView] = useState<'applications' | 'saved'>('applications')
+  const [sort, setSort] = useState<SortKey>(readSort)
+
+  function changeSort(next: SortKey) {
+    setSort(next)
+    try { localStorage.setItem(SORT_STORAGE_KEY, next) } catch { /* private mode: keep for this visit only */ }
+  }
   const [search, setSearch] = useState('')
   // 'all', 'none' (no source set yet), or an applied_through value
   const [source, setSource] = useState('all')
@@ -352,9 +374,18 @@ export default function DashboardPage() {
   const statusAndSearch = (view === 'saved' ? savedApps : tracked)
     .filter(a => view === 'saved' || filter === 'all' || (filter === 'followup' ? needsFollowUp(a) : a.status === filter))
     .filter(a => !search || a.company.toLowerCase().includes(search.toLowerCase()) || a.role.toLowerCase().includes(search.toLowerCase()))
+  const time = (a: Application) => new Date(a.created_at).getTime()
   const filtered = statusAndSearch
     .filter(a => source === 'all' || (source === 'none' ? !a.applied_through : a.applied_through === source))
+    .sort((a, b) =>
+      sort === 'oldest' ? time(a) - time(b)
+      : sort === 'company' ? a.company.localeCompare(b.company, undefined, { sensitivity: 'base' })
+      // Fit: highest first; applications without an analysis go last, newest first among ties
+      : sort === 'fit' ? ((b.fit_analysis?.overallScore ?? -1) - (a.fit_analysis?.overallScore ?? -1)) || time(b) - time(a)
+      : time(b) - time(a))
 
+  const rates = responseStats(tracked)
+  const pct = (r: number | null) => (r === null ? '—' : `${Math.round(r * 100)}%`)
   const counts = {
     total:        tracked.length,
     interviewing: tracked.filter(a => a.status === 'interviewing').length,
@@ -449,14 +480,18 @@ export default function DashboardPage() {
 
         {/* Stats */}
         {view === 'applications' && tracked.length > 0 && (
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+          <div className="grid grid-cols-3 sm:grid-cols-6 gap-3 mb-6">
             {[
-              { label: 'Total',        value: counts.total,        color: 'text-gray-800' },
-              { label: 'Interviewing', value: counts.interviewing, color: 'text-amber-600' },
-              { label: 'Offers',       value: counts.offer,        color: 'text-emerald-600' },
-              { label: 'Rejected',     value: counts.rejected,     color: 'text-red-500' },
+              { label: 'Total',          value: counts.total,               color: 'text-gray-800' },
+              { label: 'Interviewing',   value: counts.interviewing,        color: 'text-amber-600' },
+              { label: 'Offers',         value: counts.offer,               color: 'text-emerald-600' },
+              { label: 'Rejected',       value: counts.rejected,            color: 'text-red-500' },
+              { label: 'Response rate',  value: pct(rates.responseRate),    color: 'text-blue-600',
+                hint: `Replies (interview, offer, or rejection) out of ${rates.decided} applications with a result — replied, marked no response, or ${FOLLOW_UP_DAYS}+ days with no reply` },
+              { label: 'Interview rate', value: pct(rates.interviewRate),   color: 'text-violet-600',
+                hint: `Interviews or offers out of the same ${rates.decided} applications` },
             ].map(stat => (
-              <div key={stat.label} className="bg-white rounded-xl border border-gray-200 px-4 py-3 shadow-sm">
+              <div key={stat.label} title={'hint' in stat ? stat.hint : undefined} className="bg-white rounded-xl border border-gray-200 px-4 py-3 shadow-sm">
                 <p className={`text-2xl font-bold ${stat.color}`}>{stat.value}</p>
                 <p className="text-xs text-gray-400 mt-0.5 font-medium">{stat.label}</p>
               </div>
@@ -498,6 +533,12 @@ export default function DashboardPage() {
               </option>
             ))}
             <option value="none">Not set ({statusAndSearch.filter(a => !a.applied_through).length})</option>
+          </select>
+          <select value={sort} onChange={e => changeSort(e.target.value as SortKey)} aria-label="Sort"
+            className={`shrink-0 border rounded-md pl-2 pr-6 py-1 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-gray-900 ${
+              sort === 'newest' ? 'border-gray-200 text-gray-500' : 'border-gray-900 text-gray-900 font-medium'
+            }`}>
+            {SORT_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
           <input
             value={search}

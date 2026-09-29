@@ -27,3 +27,19 @@ export function daysSince(iso: string, now = Date.now()): number {
 export function needsFollowUp(app: { status: string; created_at: string }, now = Date.now()): boolean {
   return app.status === 'applied' && daysSince(app.created_at, now) >= FOLLOW_UP_DAYS
 }
+
+// Response and interview rates over applications that have a result: the company
+// replied (interviewing, offer, rejected), it was marked no response, or it's been
+// "applied" for FOLLOW_UP_DAYS+ with no reply. Recent applications still waiting
+// are left out so they don't count as misses. Rates are null until there's a result.
+export function responseStats(apps: { status: string; created_at: string }[], now = Date.now()) {
+  const replied = apps.filter(a => a.status === 'interviewing' || a.status === 'offer' || a.status === 'rejected')
+  const interviews = apps.filter(a => a.status === 'interviewing' || a.status === 'offer')
+  const unanswered = apps.filter(a => a.status === 'no_response' || needsFollowUp(a, now))
+  const decided = replied.length + unanswered.length
+  return {
+    decided,
+    responseRate: decided ? replied.length / decided : null,
+    interviewRate: decided ? interviews.length / decided : null,
+  }
+}
