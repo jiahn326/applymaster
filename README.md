@@ -19,8 +19,9 @@ Tailoring a resume for each application is slow, and generic AI rewriting tools 
 - **Resume parsing:** Upload a PDF or DOCX resume. It's parsed into a structured format that keeps your original section titles and skill groups (e.g., Languages, Frameworks, Tools).
 - **Bullet-level tailoring:** Claude compares your resume with the job description and returns only the bullets worth changing, not a full rewrite.
 - **Side-by-side review:** Original on the left, tailored on the right, with synchronized scrolling. Only the changed words are highlighted: removed words on the left, added words on the right. Undo any single change you don't want, and the PDF follows your choices; re-tailoring remembers the edits you undid.
-- **Job fit analysis:** Paste a job URL or description to extract the company, role, and description, and see how well you fit. Each category (skills, experience, location) lists specific gaps, marked required or preferred, and matches.
-- **Cover letters and "Why this company" answers:** Generates drafts from the job description, using a cover letter template you can edit in Settings.
+- **Job fit analysis:** Paste a job URL or description to save the posting's own text (not a summary) and see how well you fit. Each category (skills, experience, location) lists specific gaps, marked required or preferred, and matches. Gaps must come from what the job description asks for, so things it doesn't mention (like a current non-engineering job) don't lower the score. The job description can be edited later, and the page offers to re-run fit, tailoring, or the cover letter from the new version.
+- **Cover letters and "Why this company" answers:** Written from the job description and the resume you're actually sending (the tailored version, with your undone changes left out). Your template's greeting and closing stay exactly as written; only the middle is tailored.
+- **Application tracking:** Save postings for later in a separate Saved tab, then mark them applied. Applications with no reply after 30 days are flagged for follow-up and can be marked "No response" in bulk. Filter by status and source (auto-detected from the posting URL: Indeed, Handshake, company career pages), search, and sort by date, fit, or company.
 - **Cancelable AI actions:** Any AI request (tailoring, analysis, generation, resume parsing) can be canceled while it runs.
 - **PDF export:** Embedded Lato font, named after you (e.g., `Jane_Doe_Resume.pdf`), never the company.
 
@@ -50,6 +51,10 @@ flowchart LR
 **Keep the API key on the server.** All Claude calls go through a Supabase Edge Function, so the API key never reaches the browser.
 
 **Protect facts over keywords.** The tailoring prompt only allows terminology swaps that mirror the job description, forbids inventing metrics, technologies, or experience, requires each rewritten bullet to be the same length or shorter than the original, and keeps each bullet's original tense, so ongoing work like "Migrating" never becomes a finished "Migrated". Skills are never edited by the AI: the tailored resume always uses your original skill lines. Because the model doesn't always follow the prompt, the Edge Function also checks every suggested change and drops any that add words, grow more than 20%, change a number, remove a tool or product name, change the tense, or add a banned buzzword.
+
+**Score fit on what the job asks for.** The model scores each category against a fixed rubric (for example, years of paid engineering experience plus internships versus the stated requirement), and every gap has to trace back to the job description. The overall score and the Apply / Maybe / Skip verdict are computed in code from the category scores, so the verdict always matches the number; only a hard requirement stated in the posting can force a Skip.
+
+**Cover letters only claim what the resume shows.** Code fills the date, company, and position, keeps the template's greeting and closing verbatim, and sends the model only the middle to rewrite. Tools the job description mentions but the resume doesn't are listed in the prompt so they're never presented as experience.
 
 **Keep the PDF readable and close to the original.** The PDF embeds a Latin-subset Lato font (~70KB per style instead of ~650KB for the full font), so the file stays small. Body text auto-sizes between 10pt and 11pt so bullets that were one line in your original resume stay on one line.
 
@@ -87,6 +92,8 @@ npx supabase secrets set ANTHROPIC_API_KEY=your-api-key
 npx supabase functions deploy claude-proxy
 ```
 
+Schema changes are kept in `supabase/migrations/` and applied with `npx supabase db push`. These migrations only cover recent changes, not the base tables yet (see Roadmap).
+
 Optionally, set `ALLOWED_ORIGIN` as a secret to restrict which site can call the Edge Function (it allows all origins by default).
 
 Start the development server:
@@ -97,7 +104,7 @@ npm run dev
 
 ## Testing
 
-Unit tests cover the logic that decides what ends up in an exported PDF: the server-side checks on AI suggestions (using changes Claude actually produced as test cases), how saved tailoring changes are matched to resume bullets (changes whose original text no longer matches are reported, never applied to a different bullet), duplicated label removal, and export file names.
+Unit tests cover the logic around AI output and what ends up in an exported resume or letter: the server-side checks on tailoring suggestions (using changes Claude actually produced as test cases), how saved tailoring changes are matched to resume bullets (changes whose original text no longer matches are reported, never applied to a different bullet), Undo/Redo and re-tailoring carry-over, fit score and verdict calculation, cover letter template handling (placeholders, verbatim greeting and closing, tools the resume doesn't show), the 30-day follow-up rule, duplicated label removal, and export file names.
 
 ```bash
 npm test
@@ -105,4 +112,6 @@ npm test
 
 ## Roadmap
 
+- A baseline migration for the full database schema, so a new Supabase project can be set up from this repository alone
+- Compare response and interview rates by source and fit score, once enough applications have results
 - More export templates
