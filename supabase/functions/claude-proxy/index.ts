@@ -79,6 +79,18 @@ Deno.serve(async (req) => {
 
 type Claude = { anthropic: Anthropic; signal: AbortSignal }
 
+// The model occasionally adds a sentence before or after the JSON (e.g. when a page
+// has no job posting). Parse the object itself instead of failing the whole request.
+function parseJsonReply(text: string) {
+  try {
+    return JSON.parse(text)
+  } catch {
+    const start = text.indexOf('{'), end = text.lastIndexOf('}')
+    if (start >= 0 && end > start) return JSON.parse(text.slice(start, end + 1))
+    throw new Error('Claude returned an unreadable response')
+  }
+}
+
 async function callClaude(client: Claude, prompt: string, maxTokens = 16000) {
   const message = await client.anthropic.messages.create({
     model: 'claude-sonnet-5',
@@ -130,7 +142,7 @@ Return JSON only:
 {
   "diffs": [{ "section": "<company or project name>", "index": <0-based>, "original": "<text>", "tailored": "<text>" }]
 }`)
-  const parsed = JSON.parse(text)
+  const parsed = parseJsonReply(text)
   // Drop diffs that break the rules above (longer, changed numbers or names, tense, banned words)
   const { kept, rejected } = validateDiffs(parsed.diffs ?? [])
   if (rejected.length) console.log('tailorResume dropped diffs:', rejected.map(r => r.reason).join(', '))
@@ -150,7 +162,7 @@ ${FIT_RULES}
 
 Return JSON only:
 ${FIT_SCHEMA}`, 8000)
-  return computeFit(JSON.parse(text))
+  return computeFit(parseJsonReply(text))
 }
 
 async function generateCoverLetter(client: Claude, company: string, role: string, jobDescription: string, header?: { name: string; contact: string }, today?: string, customTemplate?: string, resumeText?: string) {
@@ -226,15 +238,27 @@ Return only the completed letter text, no markdown.`, 8000)
   return { text }
 }
 
+// Fetched pages can be huge (menus, other listings); the posting itself fits well within this
+const MAX_POSTING_CHARS = 20000
+
+// The saved job description feeds fit analysis, tailoring and cover letters, so it
+// must be the posting's own text, not a summary
+const JD_EXTRACTION_RULES = `"jobDescription": copy this posting's own text verbatim — role overview, responsibilities, requirements/qualifications, preferred/nice-to-have skills, tech stack, about the team or company, location/work arrangement, and compensation if stated.
+- Keep the original wording and order. Put each bullet point on its own line starting with "- ".
+- Leave out only text that isn't part of this posting: site navigation, cookie notices, sign-in prompts, other job listings, share buttons, generic legal/EEO statements, and page footers.
+- Do not summarize, shorten, or rephrase anything that belongs to the posting.`
+
 async function extractJobInfo(client: Claude, content: string) {
   const text = await callClaude(client, `Extract job information from this text.
 
 TEXT:
-${content}
+${content.slice(0, MAX_POSTING_CHARS)}
+
+${JD_EXTRACTION_RULES}
 
 Return JSON only:
 { "company": "", "role": "", "jobDescription": "" }`, 8000)
-  return JSON.parse(text)
+  return parseJsonReply(text)
 }
 
 async function analyzeAndExtract(client: Claude, content: string, resumeRawText?: string, currentLocation?: string) {
@@ -245,7 +269,9 @@ async function analyzeAndExtract(client: Claude, content: string, resumeRawText?
 2. ${hasResume ? 'Analyze how well the resume matches the job' : 'Skip fit analysis (no resume provided)'}
 
 JOB POSTING:
-${content}
+${content.slice(0, MAX_POSTING_CHARS)}
+
+${JD_EXTRACTION_RULES}
 
 ${hasResume ? `RESUME:
 ${resumeRawText}
@@ -256,7 +282,7 @@ Return JSON only:
   "jobInfo": { "company": "", "role": "", "jobDescription": "" },
   "fitAnalysis": ${hasResume ? FIT_SCHEMA : 'null'}
 }`, 12000)
-  const parsed = JSON.parse(text)
+  const parsed = parseJsonReply(text)
   return { ...parsed, fitAnalysis: parsed.fitAnalysis ? computeFit(parsed.fitAnalysis) : null }
 }
 
@@ -309,5 +335,5 @@ Return JSON only:
   "experience": [{ "company": "", "location": "", "title": "", "dates": "", "bullets": [] }],
   "projects": [{ "name": "", "tech": "", "dates": "", "bullets": [] }]
 }`)
-  return JSON.parse(text)
+  return parseJsonReply(text)
 }

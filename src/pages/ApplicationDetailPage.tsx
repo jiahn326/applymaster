@@ -57,6 +57,13 @@ export default function ApplicationDetailPage() {
   const [editCompany, setEditCompany] = useState('')
   const [editRole, setEditRole] = useState('')
   const [editingUrl, setEditingUrl] = useState(false)
+  const [editingJd, setEditingJd] = useState(false)
+  const [jdValue, setJdValue] = useState('')
+  const [jdOpen, setJdOpen] = useState(false)
+  // Set after the JD is edited: results below were made from the old JD
+  const [jdChanged, setJdChanged] = useState(false)
+  const jdRef = useRef<HTMLDivElement>(null)
+  const [currentLocation, setCurrentLocation] = useState<string | undefined>()
   const [urlValue, setUrlValue] = useState('')
   const [urlError, setUrlError] = useState<string | null>(null)
 
@@ -91,11 +98,11 @@ export default function ApplicationDetailPage() {
 
   // Warn on browser close/refresh when editing
   useEffect(() => {
-    const unsaved = editingMeta || editingNotes || editingUrl
+    const unsaved = editingMeta || editingNotes || editingUrl || editingJd
     const handler = (e: BeforeUnloadEvent) => { if (unsaved) { e.preventDefault(); e.returnValue = '' } }
     window.addEventListener('beforeunload', handler)
     return () => window.removeEventListener('beforeunload', handler)
-  }, [editingMeta, editingNotes, editingUrl])
+  }, [editingMeta, editingNotes, editingUrl, editingJd])
 
   // Slow warning for long-running API calls
   useEffect(() => {
@@ -130,6 +137,7 @@ export default function ApplicationDetailPage() {
       const resume = resumesData?.find((r: any) => r.id === activeId) ?? resumesData?.[0]
       setStructure(resume?.content?.structure ?? null)
       setRawText(resume?.content?.raw_text ?? '')
+      setCurrentLocation(resume?.content?.current_location ?? undefined)
       setResumeId(resume?.id)
       if (a?.cover_letter) setCoverLetter(a.cover_letter)
       setCoverLetterSubmitted(a?.cover_letter_submitted ?? false)
@@ -149,6 +157,23 @@ export default function ApplicationDetailPage() {
     setApp({ ...app, notes: notesValue })
     setEditingNotes(false)
     await supabase.from('applications').update({ notes: notesValue }).eq('id', id)
+  }
+
+  function startEditJd() {
+    setJdValue(app?.job_description ?? '')
+    setEditingJd(true)
+    setJdOpen(true)
+    setTimeout(() => jdRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50)
+  }
+
+  async function saveJd() {
+    if (!app) return
+    const next = jdValue.trim() || null
+    const hadResults = !!(app.fit_analysis || app.tailored_resume || coverLetter || whyAnswer)
+    if (next !== app.job_description && app.job_description && hadResults) setJdChanged(true)
+    setApp({ ...app, job_description: next })
+    setEditingJd(false)
+    await supabase.from('applications').update({ job_description: next }).eq('id', id)
   }
 
   // Only http(s) links are saved, so the posting links can never be javascript: URLs
@@ -229,7 +254,7 @@ export default function ApplicationDetailPage() {
     setReanalyzing(true)
     try {
       const { api } = await import('../lib/api')
-      const result = await api.analyzeJobFit(rawText, app.job_description, undefined, signal)
+      const result = await api.analyzeJobFit(rawText, app.job_description, currentLocation, signal)
       if (signal.aborted) return
       await supabase.from('applications').update({ fit_analysis: result }).eq('id', id)
       setApp({ ...app, fit_analysis: result })
@@ -353,7 +378,7 @@ export default function ApplicationDetailPage() {
       <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
         <div className="max-w-6xl mx-auto px-6 h-14 flex items-center gap-4">
           <button onClick={() => {
-            if ((editingMeta || editingNotes || editingUrl) && !confirm('Unsaved changes will be lost. Leave anyway?')) return
+            if ((editingMeta || editingNotes || editingUrl || editingJd) && !confirm('Unsaved changes will be lost. Leave anyway?')) return
             navigate('/dashboard')
           }} className="text-gray-400 hover:text-gray-700 transition-colors text-lg">←</button>
           {editingMeta ? (
@@ -525,6 +550,36 @@ export default function ApplicationDetailPage() {
           )}
         </div>
 
+        {/* JD was edited: offer to re-run what was built from the old one */}
+        {jdChanged && (
+          <div className="bg-amber-50 border border-amber-200 rounded-2xl px-5 py-4 space-y-3">
+            <div className="flex items-start justify-between gap-3">
+              <p className="text-sm text-amber-800">The job description was updated. Results below were made from the old version — re-run the ones you want.</p>
+              <button onClick={() => setJdChanged(false)} aria-label="Dismiss" className="shrink-0 text-amber-500 hover:text-amber-800 text-sm leading-none">×</button>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {app.fit_analysis && (
+                <button onClick={handleReanalyze} disabled={reanalyzing || !rawText}
+                  className="text-xs font-semibold bg-white border border-amber-300 text-amber-800 hover:bg-amber-100 disabled:opacity-40 px-3 py-1.5 rounded-lg transition-colors">
+                  {reanalyzing ? '✨ Analyzing...' : '↺ Re-analyze fit'}
+                </button>
+              )}
+              {app.tailored_resume && (
+                <button onClick={handleTailor} disabled={tailoring || !rawText}
+                  className="text-xs font-semibold bg-white border border-amber-300 text-amber-800 hover:bg-amber-100 disabled:opacity-40 px-3 py-1.5 rounded-lg transition-colors">
+                  {tailoring ? '✨ Re-tailoring...' : '↺ Re-tailor resume'}
+                </button>
+              )}
+              {coverLetter && (
+                <button onClick={handleGenerateCoverLetter} disabled={generatingCL}
+                  className="text-xs font-semibold bg-white border border-amber-300 text-amber-800 hover:bg-amber-100 disabled:opacity-40 px-3 py-1.5 rounded-lg transition-colors">
+                  {generatingCL ? '✨ Regenerating...' : '↺ Regenerate cover letter'}
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Resume + Cover Letter tabs */}
         <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
           {/* Tab bar */}
@@ -587,7 +642,7 @@ export default function ApplicationDetailPage() {
                     {tailoring ? '✨ Tailoring...' : '✨ Tailor Resume'}
                   </button>
                 )}
-                {!app.job_description && <p className="text-gray-400 text-sm text-center">Add a job description to enable tailoring.</p>}
+                {!app.job_description && <button onClick={startEditJd} className="block mx-auto text-sm text-gray-500 hover:text-gray-900 underline underline-offset-2">Add a job description to enable tailoring</button>}
               </div>
             )}
 
@@ -659,7 +714,7 @@ export default function ApplicationDetailPage() {
                     ✨ Generate Cover Letter
                   </button>
                 )}
-                {!app.job_description && <p className="text-gray-400 text-sm text-center">Add a job description to generate a cover letter.</p>}
+                {!app.job_description && <button onClick={startEditJd} className="block mx-auto text-sm text-gray-500 hover:text-gray-900 underline underline-offset-2">Add a job description to generate a cover letter</button>}
               </div>
             )}
 
@@ -719,18 +774,38 @@ export default function ApplicationDetailPage() {
           </div>
         </div>
 
-        {/* Job Description — collapsible */}
-        {app.job_description && (
-          <details className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-            <summary className="px-5 py-4 text-xs font-semibold text-gray-400 uppercase tracking-wide cursor-pointer hover:bg-gray-50 transition-colors list-none flex items-center justify-between">
+        {/* Job Description — collapsible, editable */}
+        <div ref={jdRef} className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden scroll-mt-4">
+          <div className="px-5 py-4 flex items-center justify-between gap-3">
+            <button onClick={() => setJdOpen(o => !o)} disabled={editingJd}
+              className="flex-1 flex items-center justify-between text-xs font-semibold text-gray-400 uppercase tracking-wide text-left">
               Job Description
-              <span className="text-gray-300 text-sm">▾</span>
-            </summary>
-            <div className="px-5 pb-5 border-t border-gray-100 pt-4">
-              <p className="text-gray-600 text-sm whitespace-pre-wrap leading-relaxed">{app.job_description}</p>
+              {!editingJd && <span className={`text-gray-300 text-sm transition-transform ${jdOpen ? 'rotate-180' : ''}`}>▾</span>}
+            </button>
+            {!editingJd && (
+              <button onClick={startEditJd} className="shrink-0 text-xs text-gray-400 hover:text-gray-600 transition-colors">
+                {app.job_description ? 'Edit' : 'Add'}
+              </button>
+            )}
+          </div>
+          {editingJd ? (
+            <div className="px-5 pb-5 border-t border-gray-100 pt-4 space-y-2">
+              <p className="text-xs text-gray-400">Paste the full job posting — responsibilities, requirements, and preferred skills. Fit analysis, tailoring, and cover letters all use this text.</p>
+              <textarea autoFocus value={jdValue} onChange={e => setJdValue(e.target.value)}
+                className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gray-900 resize-y h-72" />
+              <div className="flex gap-2">
+                <button onClick={saveJd} className="text-xs font-semibold text-white bg-gray-900 hover:bg-gray-700 px-3 py-1.5 rounded-lg transition-colors">Save</button>
+                <button onClick={() => setEditingJd(false)} className="text-xs text-gray-500 hover:text-gray-700 px-2 py-1.5 rounded-lg">Cancel</button>
+              </div>
             </div>
-          </details>
-        )}
+          ) : jdOpen && (
+            <div className="px-5 pb-5 border-t border-gray-100 pt-4">
+              {app.job_description
+                ? <p className="text-gray-600 text-sm whitespace-pre-wrap leading-relaxed">{app.job_description}</p>
+                : <p className="text-sm text-gray-400 italic">No job description yet.</p>}
+            </div>
+          )}
+        </div>
       </main>
       {/* Tailoring overlay */}
       {tailoring && (
