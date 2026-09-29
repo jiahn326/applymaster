@@ -1,6 +1,7 @@
 import Anthropic from 'npm:@anthropic-ai/sdk'
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import { validateDiffs } from './validateDiffs.ts'
+import { FIT_RULES, FIT_SCHEMA, computeFit } from './fit.ts'
 
 const ALLOWED_ORIGIN = Deno.env.get('ALLOWED_ORIGIN') ?? '*'
 
@@ -144,25 +145,11 @@ ${currentLocation ? `\nCANDIDATE'S CURRENT LOCATION: ${currentLocation}\n` : ''}
 JOB DESCRIPTION:
 ${jobDescription}
 
-FOR EACH CATEGORY, list why it scored that way:
-- "strengths": up to 3 specific matches; "gaps": up to 3 specific shortfalls. Use [] when there are none.
-- "item" is the concrete thing in 1-4 words: a skill, requirement, or fact (e.g. "Kubernetes", "5+ yrs", "React, TypeScript", "Seattle").
-- For gaps, "note" is "required" or "preferred" when the JD says so, otherwise a 1-4 word fact (e.g. "you have ~3"). Do not write "not in resume" — a gap already means that.
-- For strengths, "note" is where it shows up in the resume in 1-3 words (e.g. "Acme", "ApplyMaster project").
-- Only cite what is actually in the resume and the job description. Never invent experience.
+${FIT_RULES}
 
 Return JSON only:
-{
-  "overallScore": <0-100>,
-  "verdict": "Apply" | "Maybe" | "Skip",
-  "verdictReason": "<one sentence>",
-  "categories": [
-    { "label": "Skills Match", "score": <0-100>, "verdict": "strong"|"good"|"reach"|"weak", "summary": "<one sentence>", "strengths": [{ "item": "", "note": "" }], "gaps": [{ "item": "", "note": "" }] },
-    { "label": "Experience Level", "score": <0-100>, "verdict": "strong"|"good"|"reach"|"weak", "summary": "<one sentence>", "strengths": [{ "item": "", "note": "" }], "gaps": [{ "item": "", "note": "" }] },
-    { "label": "Location", "score": <0-100>, "verdict": "strong"|"good"|"reach"|"weak", "summary": "<one sentence>", "strengths": [{ "item": "", "note": "" }], "gaps": [{ "item": "", "note": "" }] }
-  ]
-}`, 8000)
-  return JSON.parse(text)
+${FIT_SCHEMA}`, 8000)
+  return computeFit(JSON.parse(text))
 }
 
 async function generateCoverLetter(client: Claude, company: string, role: string, jobDescription: string, header?: { name: string; contact: string }, today?: string, customTemplate?: string) {
@@ -237,29 +224,14 @@ ${content}
 ${hasResume ? `RESUME:
 ${resumeRawText}
 ${currentLocation ? `\nCANDIDATE'S CURRENT LOCATION: ${currentLocation}` : ''}` : ''}
-${hasResume ? `
-FOR EACH CATEGORY, list why it scored that way:
-- "strengths": up to 3 specific matches; "gaps": up to 3 specific shortfalls. Use [] when there are none.
-- "item" is the concrete thing in 1-4 words: a skill, requirement, or fact (e.g. "Kubernetes", "5+ yrs", "React, TypeScript", "Seattle").
-- For gaps, "note" is "required" or "preferred" when the JD says so, otherwise a 1-4 word fact (e.g. "you have ~3"). Do not write "not in resume" — a gap already means that.
-- For strengths, "note" is where it shows up in the resume in 1-3 words (e.g. "Acme", "ApplyMaster project").
-- Only cite what is actually in the resume and the job description. Never invent experience.
-` : ''}
+${hasResume ? `\n${FIT_RULES}\n` : ''}
 Return JSON only:
 {
   "jobInfo": { "company": "", "role": "", "jobDescription": "" },
-  "fitAnalysis": ${hasResume ? `{
-    "overallScore": <0-100>,
-    "verdict": "Apply" | "Maybe" | "Skip",
-    "verdictReason": "<one sentence>",
-    "categories": [
-      { "label": "Skills Match", "score": <0-100>, "verdict": "strong"|"good"|"reach"|"weak", "summary": "<one sentence>", "strengths": [{ "item": "", "note": "" }], "gaps": [{ "item": "", "note": "" }] },
-      { "label": "Experience Level", "score": <0-100>, "verdict": "strong"|"good"|"reach"|"weak", "summary": "<one sentence>", "strengths": [{ "item": "", "note": "" }], "gaps": [{ "item": "", "note": "" }] },
-      { "label": "Location", "score": <0-100>, "verdict": "strong"|"good"|"reach"|"weak", "summary": "<one sentence>", "strengths": [{ "item": "", "note": "" }], "gaps": [{ "item": "", "note": "" }] }
-    ]
-  }` : 'null'}
+  "fitAnalysis": ${hasResume ? FIT_SCHEMA : 'null'}
 }`, 12000)
-  return JSON.parse(text)
+  const parsed = JSON.parse(text)
+  return { ...parsed, fitAnalysis: parsed.fitAnalysis ? computeFit(parsed.fitAnalysis) : null }
 }
 
 async function generateWhyCompany(client: Claude, company: string, role: string, jobDescription: string, resumeRawText?: string, length: 'short' | 'medium' | 'long' = 'medium') {

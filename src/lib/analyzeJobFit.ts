@@ -17,6 +17,8 @@ export interface JobFitAnalysis {
   verdict: 'Apply' | 'Maybe' | 'Skip'
   verdictReason: string
   categories: FitCategory[]
+  // A JD requirement the candidate clearly can't meet; forces Skip. Newer analyses only.
+  dealbreaker?: string | null
 }
 
 export async function analyzeJobFit(
