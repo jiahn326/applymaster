@@ -414,19 +414,35 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* Applications / Saved */}
-        {applications.length > 0 && (
-          <div className="flex gap-1 bg-gray-100 p-1 rounded-lg w-fit mb-5">
-            {([['applications', 'Applications', tracked.length], ['saved', 'Saved', savedApps.length]] as const).map(([key, label, n]) => (
-              <button key={key} onClick={() => { setView(key); setFilter('all') }}
-                className={`text-sm font-semibold px-4 py-1.5 rounded-md transition-colors ${
-                  view === key ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
-                }`}>
-                {label} <span className="ml-0.5 text-gray-400 font-normal">{n}</span>
-              </button>
-            ))}
+        {/* Applications / Saved, and the main action */}
+        <div className="flex items-center justify-between gap-3 mb-5">
+          {applications.length > 0 ? (
+            <div className="flex gap-1 bg-gray-100 p-1 rounded-lg">
+              {([['applications', 'Applications', tracked.length], ['saved', 'Saved', savedApps.length]] as const).map(([key, label, n]) => (
+                <button key={key} onClick={() => { setView(key); setFilter('all') }}
+                  className={`text-sm font-semibold px-3 sm:px-4 py-1.5 rounded-md transition-colors ${
+                    view === key ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                  }`}>
+                  {label} <span className="ml-0.5 text-gray-400 font-normal">{n}</span>
+                </button>
+              ))}
+            </div>
+          ) : <span />}
+          <div className="relative group shrink-0">
+            <button
+              onClick={() => setShowNewPanel(true)}
+              disabled={!hasResume}
+              className="flex items-center justify-center gap-1.5 bg-gray-900 hover:bg-gray-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors shadow-sm"
+            >
+              <span className="text-base leading-none">+</span> New
+            </button>
+            {!hasResume && (
+              <div className="absolute top-full right-0 mt-2 px-2.5 py-1.5 bg-gray-800 text-white text-xs rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
+                Upload your resume first
+              </div>
+            )}
           </div>
-        )}
+        </div>
 
         {/* Activity heatmap */}
         {view === 'applications' && tracked.length > 0 && <ActivityHeatmap applications={tracked} />}
@@ -448,71 +464,47 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* Toolbar */}
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 mb-4">
+        {/* Toolbar: status, follow-up, source, search */}
+        <div className="flex flex-wrap items-center gap-2 mb-4">
           {view === 'applications' && (
-          <div className="flex items-center gap-2 overflow-x-auto shrink-0">
-          <div className="flex gap-1 bg-gray-100 p-1 rounded-lg shrink-0">
-            {FILTER_TABS.map(tab => (
-              <button key={tab.value} onClick={() => setFilter(tab.value)}
-                className={`text-xs font-semibold px-3 py-1.5 rounded-md transition-colors whitespace-nowrap ${
-                  filter === tab.value ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
-                }`}>
-                {tab.label}
-                {tab.value !== 'all' && (
-                  <span className="ml-1 text-gray-400 font-normal">
-                    {tracked.filter(a => a.status === tab.value).length}
-                  </span>
-                )}
-              </button>
-            ))}
-          </div>
-          {followUpApps.length > 0 && (
+            <select value={filter === 'followup' ? 'all' : filter} onChange={e => setFilter(e.target.value as FilterTab)} aria-label="Filter by status"
+              className={`shrink-0 border rounded-md pl-2 pr-6 py-1 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-gray-900 ${
+                filter === 'all' || filter === 'followup' ? 'border-gray-200 text-gray-500' : 'border-gray-900 text-gray-900 font-medium'
+              }`}>
+              {FILTER_TABS.map(tab => (
+                <option key={tab.value} value={tab.value}>
+                  {tab.value === 'all' ? `All statuses (${tracked.length})` : `${tab.label} (${tracked.filter(a => a.status === tab.value).length})`}
+                </option>
+              ))}
+            </select>
+          )}
+          {view === 'applications' && followUpApps.length > 0 && (
             <button onClick={() => setFilter(filter === 'followup' ? 'all' : 'followup')}
               title={`Still "Applied" after ${FOLLOW_UP_DAYS}+ days`}
-              className={`shrink-0 text-xs font-semibold px-3 py-1.5 rounded-lg border transition-colors whitespace-nowrap ${
+              className={`shrink-0 text-xs font-semibold px-2.5 py-1 rounded-md border transition-colors whitespace-nowrap ${
                 filter === 'followup' ? 'bg-amber-500 text-white border-amber-500' : 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100'
               }`}>
               Needs follow-up {followUpApps.length}
             </button>
           )}
-          </div>
-          )}
-          <div className="flex gap-2 flex-1">
-            <select value={source} onChange={e => setSource(e.target.value)} aria-label="Filter by source"
-              className={`shrink-0 self-center max-w-[8rem] sm:max-w-[10rem] border rounded-md pl-2 pr-6 py-1 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-gray-900 ${
-                source === 'all' ? 'border-gray-200 text-gray-500' : 'border-gray-900 text-gray-900 font-medium'
-              }`}>
-              <option value="all">All sources</option>
-              {APPLIED_THROUGH.map(opt => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.short} ({statusAndSearch.filter(a => a.applied_through === opt.value).length})
-                </option>
-              ))}
-              <option value="none">Not set ({statusAndSearch.filter(a => !a.applied_through).length})</option>
-            </select>
-            <input
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              placeholder="Search by company or role..."
-              className="flex-1 min-w-0 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 bg-white"
-            />
-            <div className="relative group shrink-0">
-              <button
-                onClick={() => setShowNewPanel(true)}
-                disabled={!hasResume}
-                className="flex items-center justify-center gap-1.5 bg-gray-900 hover:bg-gray-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors shadow-sm"
-              >
-                <span className="text-base leading-none">+</span> New
-              </button>
-              {!hasResume && (
-                <div className="absolute bottom-full right-0 mb-2 px-2.5 py-1.5 bg-gray-800 text-white text-xs rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                  Upload your resume first
-                  <div className="absolute top-full right-3 border-4 border-transparent border-t-gray-800" />
-                </div>
-              )}
-            </div>
-          </div>
+          <select value={source} onChange={e => setSource(e.target.value)} aria-label="Filter by source"
+            className={`shrink-0 max-w-[8rem] sm:max-w-[10rem] border rounded-md pl-2 pr-6 py-1 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-gray-900 ${
+              source === 'all' ? 'border-gray-200 text-gray-500' : 'border-gray-900 text-gray-900 font-medium'
+            }`}>
+            <option value="all">All sources</option>
+            {APPLIED_THROUGH.map(opt => (
+              <option key={opt.value} value={opt.value}>
+                {opt.short} ({statusAndSearch.filter(a => a.applied_through === opt.value).length})
+              </option>
+            ))}
+            <option value="none">Not set ({statusAndSearch.filter(a => !a.applied_through).length})</option>
+          </select>
+          <input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search by company or role..."
+            className="flex-1 min-w-[10rem] border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 bg-white"
+          />
         </div>
 
         {/* Follow-up: bulk action */}
