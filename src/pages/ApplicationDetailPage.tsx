@@ -14,18 +14,12 @@ import FitReasons from '../components/FitReasons'
 import { useAbortable } from '../hooks/useAbortable'
 import { resumeFileName, resolveTailoring, carryOverUndone, resumeToText } from '../lib/resumeUtils'
 import { APPLIED_THROUGH, appliedThroughLabel } from '../lib/appliedThrough'
+import { STATUS_CONFIG, TRACKED_STATUSES, type AppStatus } from '../lib/status'
 import type { TailoredResume } from '../lib/tailorResume'
 import type { ResumeStructure } from '../lib/parseResumeStructure'
 import type { JobFitAnalysis } from '../lib/analyzeJobFit'
 
-type Status = 'applied' | 'interviewing' | 'rejected' | 'offer'
-
-const STATUS_CONFIG: Record<Status, { label: string; className: string }> = {
-  applied:      { label: 'Applied',      className: 'bg-blue-50 text-blue-600 ring-1 ring-blue-200' },
-  interviewing: { label: 'Interviewing', className: 'bg-amber-50 text-amber-600 ring-1 ring-amber-200' },
-  rejected:     { label: 'Rejected',     className: 'bg-red-50 text-red-500 ring-1 ring-red-200' },
-  offer:        { label: '🎉 Offer',     className: 'bg-emerald-50 text-emerald-600 ring-1 ring-emerald-200' },
-}
+type Status = AppStatus
 
 interface Application {
   id: string
@@ -145,6 +139,15 @@ export default function ApplicationDetailPage() {
     }
     load()
   }, [id])
+
+  // Saved → applied: dated today so the dashboard counts it from the day you applied
+  async function markApplied() {
+    if (!app) return
+    const created_at = new Date().toISOString()
+    const { error } = await supabase.from('applications').update({ status: 'applied', created_at }).eq('id', id)
+    if (error) { alert('Could not update: ' + error.message); return }
+    setApp({ ...app, status: 'applied', created_at })
+  }
 
   async function updateStatus(status: Status) {
     if (!app) return
@@ -416,15 +419,22 @@ export default function ApplicationDetailPage() {
         {/* Meta row */}
         <div className="flex flex-wrap items-center gap-4">
           {/* Status */}
-          <div className={`relative inline-flex items-center gap-1 px-3 py-1 rounded-full cursor-pointer ${STATUS_CONFIG[app.status].className}`}>
+          {app.status === 'saved' ? (
+            <div className="inline-flex items-center gap-2">
+              <span className={`px-3 py-1 rounded-full text-sm font-semibold ${STATUS_CONFIG.saved.soft}`}>Saved</span>
+              <button onClick={markApplied} className="text-sm font-semibold bg-gray-900 hover:bg-gray-700 text-white px-3 py-1 rounded-full transition-colors">Mark as applied</button>
+            </div>
+          ) : (
+          <div className={`relative inline-flex items-center gap-1 px-3 py-1 rounded-full cursor-pointer ${STATUS_CONFIG[app.status].soft}`}>
             <select value={app.status} onChange={e => updateStatus(e.target.value as Status)}
               className="text-sm font-semibold cursor-pointer focus:outline-none appearance-none bg-transparent absolute inset-0 opacity-0 w-full">
-              {(Object.keys(STATUS_CONFIG) as Status[]).map(s => (
+              {TRACKED_STATUSES.map(s => (
                 <option key={s} value={s}>{STATUS_CONFIG[s].label}</option>
               ))}
             </select>
             <span className="text-sm font-semibold pointer-events-none">{STATUS_CONFIG[app.status].label} ▾</span>
           </div>
+          )}
           <span className="text-gray-400 text-sm">
             {new Date(app.created_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
           </span>

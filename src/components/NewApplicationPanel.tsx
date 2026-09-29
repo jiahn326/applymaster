@@ -205,6 +205,35 @@ export default function NewApplicationPanel({ onSaved, onClose }: Props) {
     }
   }
 
+  // Keep the analyzed posting to apply later: no auto-tailoring, shown in the Saved tab
+  async function handleSaveForLater() {
+    setSaving(true)
+    setError(null)
+    try {
+      const { data, error: insertError } = await supabase
+        .from('applications')
+        .insert({
+          company: company || 'Unknown',
+          role: role || 'Unknown',
+          job_url: jobUrl || null,
+          job_description: jobDescription || null,
+          notes: null,
+          applied_through: inferAppliedThrough(jobUrl),
+          status: 'saved',
+          fit_analysis: analysis,
+          user_id: user?.id,
+        })
+        .select()
+        .single()
+      if (insertError) throw insertError
+      onSaved(data)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : (err as { message?: string })?.message ?? 'Failed to save.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
   async function handleSave() {
     if (!company || !role) {
       setError('Company and role are required.')
@@ -448,6 +477,12 @@ export default function NewApplicationPanel({ onSaved, onClose }: Props) {
           >
             {saving ? 'Saving...' : tailoring ? '✨ Tailoring resume...' : analysis?.verdict === 'Skip' ? 'Apply anyway →' : "Yes, I'll apply! →"}
           </button>
+          {!tailoring && (
+            <button onClick={handleSaveForLater} disabled={saving}
+              className="w-full border border-gray-200 text-gray-700 hover:bg-gray-50 font-medium py-2 rounded-xl transition-colors text-sm disabled:opacity-60">
+              🔖 Save for later
+            </button>
+          )}
           {tailoring && (
             <button onClick={skipTailoring}
               className="w-full border border-gray-200 text-gray-600 hover:bg-gray-50 font-medium py-2 rounded-xl transition-colors text-sm">

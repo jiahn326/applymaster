@@ -5,9 +5,10 @@ import NewApplicationPanel from '../components/NewApplicationPanel'
 import { useAuth } from '../hooks/useAuth'
 import { APPLIED_THROUGH, appliedThroughShort } from '../lib/appliedThrough'
 import SourceIcon from '../components/SourceIcon'
+import { STATUS_CONFIG, TRACKED_STATUSES, FOLLOW_UP_DAYS, needsFollowUp, daysSince, type AppStatus } from '../lib/status'
 
-type Status = 'applied' | 'interviewing' | 'rejected' | 'offer'
-type FilterTab = 'all' | Status
+type Status = AppStatus
+type FilterTab = 'all' | 'followup' | Status
 
 interface Application {
   id: string
@@ -23,17 +24,11 @@ interface Application {
   fit_analysis: { verdict: 'Apply' | 'Maybe' | 'Skip'; overallScore: number } | null
 }
 
-const STATUS_CONFIG: Record<Status, { label: string; color: string }> = {
-  applied:      { label: 'Applied',      color: 'bg-blue-500 text-white' },
-  interviewing: { label: 'Interviewing', color: 'bg-amber-400 text-white' },
-  rejected:     { label: 'Rejected',     color: 'bg-red-400 text-white' },
-  offer:        { label: '🎉 Offer',     color: 'bg-emerald-500 text-white' },
-}
-
 const FILTER_TABS: { value: FilterTab; label: string }[] = [
   { value: 'all',          label: 'All' },
   { value: 'applied',      label: 'Applied' },
   { value: 'interviewing', label: 'Interviewing' },
+  { value: 'no_response',  label: 'No response' },
   { value: 'offer',        label: 'Offers' },
   { value: 'rejected',     label: 'Rejected' },
 ]
@@ -45,9 +40,9 @@ function StatusSelect({ app, onChange }: { app: Application; onChange: (e: React
       <select
         value={app.status}
         onChange={e => onChange(e, app.id)}
-        className={`appearance-none text-xs font-semibold pl-2.5 pr-6 py-1 rounded-full border-0 cursor-pointer focus:outline-none ${cfg.color}`}
+        className={`appearance-none text-xs font-semibold pl-2.5 pr-6 py-1 rounded-full border-0 cursor-pointer focus:outline-none ${cfg.solid}`}
       >
-        {(Object.keys(STATUS_CONFIG) as Status[]).map(s => (
+        {TRACKED_STATUSES.map(s => (
           <option key={s} value={s}>{STATUS_CONFIG[s].label}</option>
         ))}
       </select>
@@ -228,6 +223,8 @@ export default function DashboardPage() {
   const [applications, setApplications] = useState<Application[]>([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<FilterTab>('all')
+  // Saved postings (not applied yet) live in their own tab, apart from tracked applications
+  const [view, setView] = useState<'applications' | 'saved'>('applications')
   const [search, setSearch] = useState('')
   // 'all', 'none' (no source set yet), or an applied_through value
   const [source, setSource] = useState('all')
@@ -262,7 +259,28 @@ export default function DashboardPage() {
   function handleSaved(app: Application) {
     setApplications(prev => [app, ...prev])
     setShowNewPanel(false)
+    if (app.status === 'saved') { setView('saved'); setFilter('all'); return }
     navigate(`/applications/${app.id}`)
+  }
+
+  // Applying to a saved posting: it joins the tracked list dated today, so the
+  // heatmap, streak, and 30-day follow-up count from the day you actually applied
+  async function handleMarkApplied(e: React.MouseEvent, id: string) {
+    e.stopPropagation()
+    const created_at = new Date().toISOString()
+    const { error } = await supabase.from('applications').update({ status: 'applied', created_at }).eq('id', id)
+    if (error) { alert('Could not update: ' + error.message); return }
+    setApplications(prev => prev.map(a => a.id === id ? { ...a, status: 'applied' as const, created_at } : a)
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()))
+  }
+
+  async function handleBulkNoResponse(ids: string[]) {
+    if (!ids.length || !confirm(`Mark ${ids.length} application${ids.length === 1 ? '' : 's'} as "No response"?`)) return
+    const { error } = await supabase.from('applications').update({ status: 'no_response' }).in('id', ids)
+    if (error) { alert('Could not update: ' + error.message); return }
+    const set = new Set(ids)
+    setApplications(prev => prev.map(a => set.has(a.id) ? { ...a, status: 'no_response' as const } : a))
+    setFilter('no_response')
   }
 
   async function handleDelete(e: React.MouseEvent, id: string) {
@@ -326,18 +344,22 @@ export default function DashboardPage() {
     setApplications(prev => prev.map(a => a.id === id ? { ...a, status } : a))
   }
 
-  // Source counts follow the current status tab and search, so the numbers match what you'd see
-  const statusAndSearch = applications
-    .filter(a => filter === 'all' || a.status === filter)
+  const tracked = applications.filter(a => a.status !== 'saved')
+  const savedApps = applications.filter(a => a.status === 'saved')
+  const followUpApps = tracked.filter(a => needsFollowUp(a))
+
+  // Source counts follow the current tab and search, so the numbers match what you'd see
+  const statusAndSearch = (view === 'saved' ? savedApps : tracked)
+    .filter(a => view === 'saved' || filter === 'all' || (filter === 'followup' ? needsFollowUp(a) : a.status === filter))
     .filter(a => !search || a.company.toLowerCase().includes(search.toLowerCase()) || a.role.toLowerCase().includes(search.toLowerCase()))
   const filtered = statusAndSearch
     .filter(a => source === 'all' || (source === 'none' ? !a.applied_through : a.applied_through === source))
 
   const counts = {
-    total:        applications.length,
-    interviewing: applications.filter(a => a.status === 'interviewing').length,
-    offer:        applications.filter(a => a.status === 'offer').length,
-    rejected:     applications.filter(a => a.status === 'rejected').length,
+    total:        tracked.length,
+    interviewing: tracked.filter(a => a.status === 'interviewing').length,
+    offer:        tracked.filter(a => a.status === 'offer').length,
+    rejected:     tracked.filter(a => a.status === 'rejected').length,
   }
 
   return (
@@ -392,11 +414,25 @@ export default function DashboardPage() {
           </div>
         )}
 
+        {/* Applications / Saved */}
+        {applications.length > 0 && (
+          <div className="flex gap-1 bg-gray-100 p-1 rounded-lg w-fit mb-5">
+            {([['applications', 'Applications', tracked.length], ['saved', 'Saved', savedApps.length]] as const).map(([key, label, n]) => (
+              <button key={key} onClick={() => { setView(key); setFilter('all') }}
+                className={`text-sm font-semibold px-4 py-1.5 rounded-md transition-colors ${
+                  view === key ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                }`}>
+                {label} <span className="ml-0.5 text-gray-400 font-normal">{n}</span>
+              </button>
+            ))}
+          </div>
+        )}
+
         {/* Activity heatmap */}
-        {applications.length > 0 && <ActivityHeatmap applications={applications} />}
+        {view === 'applications' && tracked.length > 0 && <ActivityHeatmap applications={tracked} />}
 
         {/* Stats */}
-        {applications.length > 0 && (
+        {view === 'applications' && tracked.length > 0 && (
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
             {[
               { label: 'Total',        value: counts.total,        color: 'text-gray-800' },
@@ -414,7 +450,9 @@ export default function DashboardPage() {
 
         {/* Toolbar */}
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 mb-4">
-          <div className="flex gap-1 bg-gray-100 p-1 rounded-lg overflow-x-auto shrink-0">
+          {view === 'applications' && (
+          <div className="flex items-center gap-2 overflow-x-auto shrink-0">
+          <div className="flex gap-1 bg-gray-100 p-1 rounded-lg shrink-0">
             {FILTER_TABS.map(tab => (
               <button key={tab.value} onClick={() => setFilter(tab.value)}
                 className={`text-xs font-semibold px-3 py-1.5 rounded-md transition-colors whitespace-nowrap ${
@@ -423,12 +461,23 @@ export default function DashboardPage() {
                 {tab.label}
                 {tab.value !== 'all' && (
                   <span className="ml-1 text-gray-400 font-normal">
-                    {applications.filter(a => a.status === tab.value).length}
+                    {tracked.filter(a => a.status === tab.value).length}
                   </span>
                 )}
               </button>
             ))}
           </div>
+          {followUpApps.length > 0 && (
+            <button onClick={() => setFilter(filter === 'followup' ? 'all' : 'followup')}
+              title={`Still "Applied" after ${FOLLOW_UP_DAYS}+ days`}
+              className={`shrink-0 text-xs font-semibold px-3 py-1.5 rounded-lg border transition-colors whitespace-nowrap ${
+                filter === 'followup' ? 'bg-amber-500 text-white border-amber-500' : 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100'
+              }`}>
+              Needs follow-up {followUpApps.length}
+            </button>
+          )}
+          </div>
+          )}
           <div className="flex gap-2 flex-1">
             <select value={source} onChange={e => setSource(e.target.value)} aria-label="Filter by source"
               className={`shrink-0 self-center max-w-[8rem] sm:max-w-[10rem] border rounded-md pl-2 pr-6 py-1 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-gray-900 ${
@@ -466,10 +515,30 @@ export default function DashboardPage() {
           </div>
         </div>
 
+        {/* Follow-up: bulk action */}
+        {view === 'applications' && filter === 'followup' && filtered.length > 0 && (
+          <div className="mb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+            <p className="text-xs text-amber-800">
+              {filtered.length} application{filtered.length === 1 ? '' : 's'} still “Applied” after {FOLLOW_UP_DAYS}+ days. Follow up, or mark the ones you've given up on.
+            </p>
+            <button onClick={() => handleBulkNoResponse(filtered.map(a => a.id))}
+              className="shrink-0 text-xs font-semibold bg-white border border-amber-300 text-amber-800 hover:bg-amber-100 px-3 py-1.5 rounded-lg transition-colors">
+              Mark all {filtered.length} as no response
+            </button>
+          </div>
+        )}
+
         {/* Empty state */}
-        {!loading && filtered.length === 0 && (
+        {!loading && view === 'saved' && filtered.length === 0 && !search && source === 'all' && (
           <div className="bg-white border border-dashed border-gray-300 rounded-xl py-16 text-center px-6">
-            {filter === 'all' && source === 'all' && !search ? (
+            <p className="text-3xl mb-3">🔖</p>
+            <p className="text-gray-700 font-semibold text-sm mb-1">No saved jobs</p>
+            <p className="text-gray-400 text-xs">When you add a job, choose “Save for later” to keep it here until you apply.</p>
+          </div>
+        )}
+        {!loading && filtered.length === 0 && !(view === 'saved' && !search && source === 'all') && (
+          <div className="bg-white border border-dashed border-gray-300 rounded-xl py-16 text-center px-6">
+            {view === 'applications' && filter === 'all' && source === 'all' && !search ? (
               <>
                 <p className="text-3xl mb-3">📋</p>
                 <p className="text-gray-700 font-semibold text-sm mb-1">No applications yet</p>
@@ -513,7 +582,7 @@ export default function DashboardPage() {
         {filtered.length > 0 && (
           <div className="hidden sm:block bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
             <div className="grid grid-cols-[110px_1fr_1fr_56px_70px_60px_130px_36px] gap-3 px-5 py-3 border-b border-gray-100 bg-gray-50">
-              <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Date</span>
+              <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide">{view === 'saved' ? 'Saved' : 'Date'}</span>
               <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Company</span>
               <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Position</span>
               <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide text-center">Source</span>
@@ -529,6 +598,9 @@ export default function DashboardPage() {
                 }`}>
                 <span className="text-sm text-gray-500">
                   {new Date(app.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                  {needsFollowUp(app) && (
+                    <span className="block text-[10px] font-semibold text-amber-600">{daysSince(app.created_at)}d, no reply</span>
+                  )}
                 </span>
                 <span className="font-semibold text-gray-900 text-sm truncate">{app.company}</span>
                 <span className="text-sm text-gray-600 truncate">{app.role}</span>
@@ -546,9 +618,11 @@ export default function DashboardPage() {
                 }`}>
                   {app.fit_analysis ? app.fit_analysis.overallScore : '—'}
                 </span>
-                {/* Inline status dropdown */}
+                {/* Inline status dropdown, or "Mark as applied" for saved postings */}
                 <div onClick={e => e.stopPropagation()}>
-                  <StatusSelect app={app} onChange={handleStatusChange} />
+                  {app.status === 'saved'
+                    ? <button onClick={e => handleMarkApplied(e, app.id)} className="text-xs font-semibold bg-gray-900 hover:bg-gray-700 text-white px-2.5 py-1 rounded-full transition-colors">Mark as applied</button>
+                    : <StatusSelect app={app} onChange={handleStatusChange} />}
                 </div>
                 <button onClick={(e) => handleDelete(e, app.id)} className="text-gray-300 hover:text-red-400 transition-colors">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -572,7 +646,9 @@ export default function DashboardPage() {
                     <p className="text-gray-500 text-xs truncate mt-0.5">{app.role}</p>
                   </div>
                   <div className="flex items-center gap-2 shrink-0" onClick={e => e.stopPropagation()}>
-                    <StatusSelect app={app} onChange={handleStatusChange} />
+                    {app.status === 'saved'
+                      ? <button onClick={e => handleMarkApplied(e, app.id)} className="text-xs font-semibold bg-gray-900 text-white px-2.5 py-1 rounded-full">Mark as applied</button>
+                      : <StatusSelect app={app} onChange={handleStatusChange} />}
                     <button onClick={(e) => handleDelete(e, app.id)}
                       className="text-gray-300 hover:text-red-400 transition-colors">
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -585,6 +661,7 @@ export default function DashboardPage() {
                   <span className="text-xs text-gray-400">
                     {new Date(app.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                   </span>
+                  {needsFollowUp(app) && <span className="text-xs font-semibold text-amber-600">{daysSince(app.created_at)}d, no reply</span>}
                   {app.applied_through && (
                     <span className="inline-flex items-center gap-1 text-xs text-gray-500">
                       <SourceIcon value={app.applied_through} />
