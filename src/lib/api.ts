@@ -23,9 +23,6 @@ export const api = {
     return callProxy('generateCoverLetter', { company, role, jobDescription, header, today, template, resumeText }, signal).then(d => d.text as string)
   },
 
-  extractJobInfo: (content: string, signal?: AbortSignal) =>
-    callProxy('extractJobInfo', { content }, signal),
-
   analyzeAndExtract: (content: string, resumeRawText?: string, currentLocation?: string, signal?: AbortSignal) =>
     callProxy('analyzeAndExtract', { content, resumeRawText, currentLocation }, signal),
 

@@ -25,7 +25,6 @@ const REQUIRED: Record<string, string[]> = {
   tailorResume:         ['resumeRawText', 'jobDescription'],
   analyzeJobFit:        ['resumeRawText', 'jobDescription'],
   generateCoverLetter:  ['company', 'role', 'jobDescription'],
-  extractJobInfo:       ['content'],
   analyzeAndExtract:    ['content'],
   parseResumeStructure: ['rawText'],
   generateWhyCompany:   ['company', 'role', 'jobDescription'],
@@ -66,7 +65,6 @@ Deno.serve(async (req) => {
     if (action === 'tailorResume')            result = await tailorResume(client, payload.resumeRawText, payload.jobDescription)
     else if (action === 'analyzeJobFit')      result = await analyzeJobFit(client, payload.resumeRawText, payload.jobDescription, payload.currentLocation)
     else if (action === 'generateCoverLetter') result = await generateCoverLetter(client, payload.company, payload.role, payload.jobDescription, payload.header, payload.today, payload.template, payload.resumeText)
-    else if (action === 'extractJobInfo')     result = await extractJobInfo(client, payload.content)
     else if (action === 'analyzeAndExtract')  result = await analyzeAndExtract(client, payload.content, payload.resumeRawText, payload.currentLocation)
     else if (action === 'parseResumeStructure') result = await parseResumeStructure(client, payload.rawText)
     else if (action === 'generateWhyCompany') result = await generateWhyCompany(client, payload.company, payload.role, payload.jobDescription, payload.resumeRawText, payload.length)
@@ -247,19 +245,6 @@ const JD_EXTRACTION_RULES = `"jobDescription": copy this posting's own text verb
 - Keep the original wording and order. Put each bullet point on its own line starting with "- ".
 - Leave out only text that isn't part of this posting: site navigation, cookie notices, sign-in prompts, other job listings, share buttons, generic legal/EEO statements, and page footers.
 - Do not summarize, shorten, or rephrase anything that belongs to the posting.`
-
-async function extractJobInfo(client: Claude, content: string) {
-  const text = await callClaude(client, `Extract job information from this text.
-
-TEXT:
-${content.slice(0, MAX_POSTING_CHARS)}
-
-${JD_EXTRACTION_RULES}
-
-Return JSON only:
-{ "company": "", "role": "", "jobDescription": "" }`, 8000)
-  return parseJsonReply(text)
-}
 
 async function analyzeAndExtract(client: Claude, content: string, resumeRawText?: string, currentLocation?: string) {
   const hasResume = !!resumeRawText
