@@ -5,7 +5,7 @@ import NewApplicationPanel from '../components/NewApplicationPanel'
 import { useAuth } from '../hooks/useAuth'
 import { APPLIED_THROUGH, appliedThroughShort } from '../lib/appliedThrough'
 import SourceIcon from '../components/SourceIcon'
-import { STATUS_CONFIG, TRACKED_STATUSES, FOLLOW_UP_DAYS, needsFollowUp, daysSince, responseStats, type AppStatus } from '../lib/status'
+import { STATUS_CONFIG, TRACKED_STATUSES, FOLLOW_UP_DAYS, needsFollowUp, daysSince, type AppStatus } from '../lib/status'
 
 type Status = AppStatus
 type FilterTab = 'all' | 'followup' | Status
@@ -384,8 +384,6 @@ export default function DashboardPage() {
       : sort === 'fit' ? ((b.fit_analysis?.overallScore ?? -1) - (a.fit_analysis?.overallScore ?? -1)) || time(b) - time(a)
       : time(b) - time(a))
 
-  const rates = responseStats(tracked)
-  const pct = (r: number | null) => (r === null ? '—' : `${Math.round(r * 100)}%`)
   const counts = {
     total:        tracked.length,
     interviewing: tracked.filter(a => a.status === 'interviewing').length,
@@ -480,18 +478,14 @@ export default function DashboardPage() {
 
         {/* Stats */}
         {view === 'applications' && tracked.length > 0 && (
-          <div className="grid grid-cols-3 sm:grid-cols-6 gap-3 mb-6">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
             {[
-              { label: 'Total',          value: counts.total,               color: 'text-gray-800' },
-              { label: 'Interviewing',   value: counts.interviewing,        color: 'text-amber-600' },
-              { label: 'Offers',         value: counts.offer,               color: 'text-emerald-600' },
-              { label: 'Rejected',       value: counts.rejected,            color: 'text-red-500' },
-              { label: 'Response rate',  value: pct(rates.responseRate),    color: 'text-blue-600',
-                hint: `Replies (interview, offer, or rejection) out of ${rates.decided} applications with a result — replied, marked no response, or ${FOLLOW_UP_DAYS}+ days with no reply` },
-              { label: 'Interview rate', value: pct(rates.interviewRate),   color: 'text-violet-600',
-                hint: `Interviews or offers out of the same ${rates.decided} applications` },
+              { label: 'Total',        value: counts.total,        color: 'text-gray-800' },
+              { label: 'Interviewing', value: counts.interviewing, color: 'text-amber-600' },
+              { label: 'Offers',       value: counts.offer,        color: 'text-emerald-600' },
+              { label: 'Rejected',     value: counts.rejected,     color: 'text-red-500' },
             ].map(stat => (
-              <div key={stat.label} title={'hint' in stat ? stat.hint : undefined} className="bg-white rounded-xl border border-gray-200 px-4 py-3 shadow-sm">
+              <div key={stat.label} className="bg-white rounded-xl border border-gray-200 px-4 py-3 shadow-sm">
                 <p className={`text-2xl font-bold ${stat.color}`}>{stat.value}</p>
                 <p className="text-xs text-gray-400 mt-0.5 font-medium">{stat.label}</p>
               </div>
