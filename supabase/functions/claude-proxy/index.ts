@@ -1,5 +1,6 @@
 import Anthropic from 'npm:@anthropic-ai/sdk'
 import { createClient } from 'npm:@supabase/supabase-js@2'
+import { validateDiffs } from './validateDiffs.ts'
 
 const ALLOWED_ORIGIN = Deno.env.get('ALLOWED_ORIGIN') ?? '*'
 
@@ -128,7 +129,10 @@ Return JSON only:
   "diffs": [{ "section": "<company or project name>", "index": <0-based>, "original": "<text>", "tailored": "<text>" }]
 }`)
   const parsed = JSON.parse(text)
-  return { ...parsed, diffs: parsed.diffs.map((d: any) => ({ ...d, accepted: true })) }
+  // Drop diffs that break the rules above (longer, changed numbers or names, tense, banned words)
+  const { kept, rejected } = validateDiffs(parsed.diffs ?? [])
+  if (rejected.length) console.log('tailorResume dropped diffs:', rejected.map(r => r.reason).join(', '))
+  return { ...parsed, diffs: kept.map(d => ({ ...d, accepted: true })) }
 }
 
 async function analyzeJobFit(client: Claude, resumeRawText: string, jobDescription: string, currentLocation?: string) {
