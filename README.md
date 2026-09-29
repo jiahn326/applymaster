@@ -49,7 +49,7 @@ flowchart LR
 
 **Keep the API key on the server.** All Claude calls go through a Supabase Edge Function, so the API key never reaches the browser.
 
-**Protect facts over keywords.** The tailoring prompt only allows terminology swaps that mirror the job description, forbids inventing metrics, technologies, or experience, requires each rewritten bullet to be the same length or shorter than the original, and keeps each bullet's original tense, so ongoing work like "Migrating" never becomes a finished "Migrated". Skills are never edited by the AI: the tailored resume always uses your original skill lines.
+**Protect facts over keywords.** The tailoring prompt only allows terminology swaps that mirror the job description, forbids inventing metrics, technologies, or experience, requires each rewritten bullet to be the same length or shorter than the original, and keeps each bullet's original tense, so ongoing work like "Migrating" never becomes a finished "Migrated". Skills are never edited by the AI: the tailored resume always uses your original skill lines. Because the model doesn't always follow the prompt, the Edge Function also checks every suggested change and drops any that add words, grow more than 20%, change a number, remove a tool or product name, change the tense, or add a banned buzzword.
 
 **Keep the PDF readable and close to the original.** The PDF embeds a Latin-subset Lato font (~70KB per style instead of ~650KB for the full font), so the file stays small. Body text auto-sizes between 10pt and 11pt so bullets that were one line in your original resume stay on one line.
 
@@ -97,7 +97,7 @@ npm run dev
 
 ## Testing
 
-Unit tests cover the resume logic that decides what ends up in an exported PDF: how saved tailoring changes are matched to resume bullets (changes whose original text no longer matches are reported, never applied to a different bullet), duplicated label removal, and export file names.
+Unit tests cover the logic that decides what ends up in an exported PDF: the server-side checks on AI suggestions (using changes Claude actually produced as test cases), how saved tailoring changes are matched to resume bullets (changes whose original text no longer matches are reported, never applied to a different bullet), duplicated label removal, and export file names.
 
 ```bash
 npm test
@@ -105,5 +105,4 @@ npm test
 
 ## Roadmap
 
-- Server-side checks on AI output (length limits, no placeholder text)
 - More export templates

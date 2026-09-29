@@ -69,6 +69,8 @@ export default function ApplicationDetailPage() {
   const coverLetterJob = useAbortable()
   const whyJob = useAbortable()
   const [tailoring, setTailoring] = useState(false)
+  // Shown after Re-tailor: the new result replaces the old one, so say how it compares
+  const [retailorNote, setRetailorNote] = useState<{ count: number; previous: number } | null>(null)
   const [tailoringSlow, setTailoringSlow] = useState(false)
   const [reanalyzing, setReanalyzing] = useState(false)
   const [coverLetter, setCoverLetter] = useState<string | null>(null)
@@ -248,7 +250,8 @@ export default function ApplicationDetailPage() {
       if (signal.aborted) return
       await supabase.from('applications').update({ tailored_resume: result }).eq('id', id)
       setApp({ ...app, tailored_resume: result })
-      showToast('✉️ Want to generate a cover letter too?')
+      if (app.tailored_resume) setRetailorNote({ count: result.diffs.length, previous: app.tailored_resume.diffs.length })
+      else showToast('✉️ Want to generate a cover letter too?')
     } catch (err: any) {
       if (!signal.aborted) alert('Tailoring failed: ' + (err.message ?? 'Unknown error'))
     } finally {
@@ -546,6 +549,17 @@ export default function ApplicationDetailPage() {
                         {tailoring ? '✨ Re-tailoring...' : '↺ Re-tailor'}
                       </button>
                     </div>
+                    {retailorNote && (
+                      <div className="flex items-start justify-between gap-3 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3">
+                        <p className="text-xs text-gray-600 leading-relaxed">
+                          {retailorNote.count === 0
+                            ? `Re-tailored: no changes this time (previous result had ${retailorNote.previous}). Your resume may already use this job's terms.`
+                            : `Re-tailored: ${retailorNote.count} change${retailorNote.count === 1 ? '' : 's'} (previous result had ${retailorNote.previous}). The new result replaces the old one.`}
+                          {' '}Changes that would alter facts, numbers, or tool names are left out.
+                        </p>
+                        <button onClick={() => setRetailorNote(null)} aria-label="Dismiss" className="shrink-0 text-gray-400 hover:text-gray-700 text-sm leading-none">×</button>
+                      </div>
+                    )}
                     {notAppliedCount > 0 && (
                       <div className="flex items-start sm:items-center justify-between gap-3 flex-col sm:flex-row bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
                         <p className="text-xs text-amber-800 leading-relaxed">
