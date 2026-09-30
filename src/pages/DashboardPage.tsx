@@ -91,6 +91,8 @@ function motivationMessage(todayCount: number, streak: number): string {
 
 function ActivityHeatmap({ applications }: { applications: { created_at: string }[] }) {
   const [tooltip, setTooltip] = useState<{ text: string; x: number; y: number } | null>(null)
+  // On phones the grid starts collapsed so the application list is on the first screen
+  const [open, setOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
 
   const WEEKS = 16
@@ -141,10 +143,10 @@ function ActivityHeatmap({ applications }: { applications: { created_at: string 
   }
 
   return (
-    <div ref={containerRef} className="bg-white rounded-2xl border border-gray-200 shadow-sm px-5 py-4 mb-6 relative">
+    <div ref={containerRef} className="bg-white rounded-2xl border border-gray-200 shadow-sm px-5 py-4 relative">
 
       {/* Top row: streak + message + today goal */}
-      <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+      <div className={`flex items-center justify-between flex-wrap gap-2 ${open ? 'mb-4' : 'sm:mb-4'}`}>
         <div className="flex items-center gap-2">
           {streak > 0 && (
             <span className="text-xs font-bold text-orange-500 bg-orange-50 px-2.5 py-1 rounded-full">
@@ -154,11 +156,17 @@ function ActivityHeatmap({ applications }: { applications: { created_at: string 
           <span className="text-xs text-gray-400 italic">{motivationMessage(todayCount, streak)}</span>
         </div>
 
-        <span className="text-xs font-semibold text-gray-500">
-          Today: <span className={goalReached ? 'text-emerald-500' : 'text-gray-800'}>{todayCount}</span>
-        </span>
+        <div className="flex items-center gap-3">
+          <span className="text-xs font-semibold text-gray-500">
+            Today: <span className={goalReached ? 'text-emerald-500' : 'text-gray-800'}>{todayCount}</span>
+          </span>
+          <button onClick={() => setOpen(o => !o)} className="sm:hidden text-xs text-gray-400 hover:text-gray-700">
+            {open ? 'Hide activity ▴' : 'Show activity ▾'}
+          </button>
+        </div>
       </div>
 
+      <div className={open ? '' : 'hidden sm:block'}>
       {/* Month labels */}
       <div className="flex gap-1 mb-1 ml-8">
         {Array.from({ length: WEEKS }).map((_, wi) => {
@@ -220,6 +228,7 @@ function ActivityHeatmap({ applications }: { applications: { created_at: string 
           <span key={l} className="text-[10px] text-gray-300">{l}</span>
         ))}
       </div>
+      </div>
 
       {/* Tooltip */}
       {tooltip && (
@@ -252,10 +261,6 @@ export default function DashboardPage() {
   const [source, setSource] = useState('all')
   const [showNewPanel, setShowNewPanel] = useState(false)
   const [undoItem, setUndoItem] = useState<{ app: Application; timer: ReturnType<typeof setTimeout> } | null>(null)
-  const [showChangePw, setShowChangePw] = useState(false)
-  const [newPw, setNewPw] = useState('')
-  const [pwLoading, setPwLoading] = useState(false)
-  const [pwMsg, setPwMsg] = useState<{ ok: boolean; text: string } | null>(null)
   const navigate = useNavigate()
   const { signOut } = useAuth()
 
@@ -332,16 +337,6 @@ export default function DashboardPage() {
     setUndoItem(null)
   }
 
-  async function handleChangePassword(e: React.FormEvent) {
-    e.preventDefault()
-    if (!newPw || newPw.length < 6) { setPwMsg({ ok: false, text: 'At least 6 characters' }); return }
-    setPwLoading(true)
-    const { error } = await supabase.auth.updateUser({ password: newPw })
-    if (error) setPwMsg({ ok: false, text: error.message })
-    else { setPwMsg({ ok: true, text: 'Password updated!' }); setNewPw(''); setTimeout(() => setShowChangePw(false), 1500) }
-    setPwLoading(false)
-  }
-
   async function handleSeedData() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
@@ -395,20 +390,16 @@ export default function DashboardPage() {
     <div className="min-h-screen bg-[#F7F8FA]">
       {/* Header */}
       <header className="bg-white border-b border-gray-200 sticky top-0 z-20">
-        <div className="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-3">
           <span className="text-lg font-bold tracking-tight text-gray-900">ApplyMaster</span>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3 sm:gap-4 whitespace-nowrap">
             <button onClick={() => navigate('/resume/upload')}
               className="text-sm text-gray-500 hover:text-gray-800 font-medium transition-colors">
-              {hasResume ? '↑ Replace Resume' : '↑ Upload Resume'}
+              {hasResume ? 'Resume' : '↑ Upload resume'}
             </button>
             <button onClick={() => navigate('/settings')}
               className="text-sm text-gray-400 hover:text-gray-700 font-medium transition-colors">
               Settings
-            </button>
-            <button onClick={() => { setShowChangePw(true); setPwMsg(null); setNewPw('') }}
-              className="text-sm text-gray-400 hover:text-gray-700 font-medium transition-colors">
-              Change password
             </button>
             <button onClick={() => signOut()}
               className="text-sm text-gray-400 hover:text-gray-700 font-medium transition-colors">
@@ -473,24 +464,24 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Activity heatmap */}
-        {view === 'applications' && tracked.length > 0 && <ActivityHeatmap applications={tracked} />}
-
-        {/* Stats */}
+        {/* Activity heatmap + stats: side by side on wide screens, stacked on phones */}
         {view === 'applications' && tracked.length > 0 && (
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+        <div className="lg:grid lg:grid-cols-[auto_1fr] lg:gap-4 mb-6 space-y-3 lg:space-y-0">
+          <ActivityHeatmap applications={tracked} />
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-2 lg:auto-rows-fr gap-3">
             {[
               { label: 'Total',        value: counts.total,        color: 'text-gray-800' },
               { label: 'Interviewing', value: counts.interviewing, color: 'text-amber-600' },
               { label: 'Offers',       value: counts.offer,        color: 'text-emerald-600' },
               { label: 'Rejected',     value: counts.rejected,     color: 'text-red-500' },
             ].map(stat => (
-              <div key={stat.label} className="bg-white rounded-xl border border-gray-200 px-4 py-3 shadow-sm">
-                <p className={`text-2xl font-bold ${stat.color}`}>{stat.value}</p>
+              <div key={stat.label} className="bg-white rounded-xl border border-gray-200 px-4 py-3 shadow-sm lg:flex lg:flex-col lg:justify-center lg:px-6">
+                <p className={`text-2xl lg:text-3xl font-bold ${stat.color}`}>{stat.value}</p>
                 <p className="text-xs text-gray-400 mt-0.5 font-medium">{stat.label}</p>
               </div>
             ))}
           </div>
+        </div>
         )}
 
         {/* Toolbar: status, follow-up, source, search */}
@@ -723,35 +714,6 @@ export default function DashboardPage() {
       )}
 
       {/* Change Password modal */}
-      {showChangePw && (
-        <div className="fixed inset-0 bg-black/30 z-50 flex items-center justify-center px-4" onClick={() => setShowChangePw(false)}>
-          <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-sm" onClick={e => e.stopPropagation()}>
-            <h2 className="text-lg font-bold text-gray-900 mb-5">Change password</h2>
-            <form onSubmit={handleChangePassword} className="space-y-3">
-              <input
-                type="password"
-                value={newPw}
-                onChange={e => setNewPw(e.target.value)}
-                placeholder="New password"
-                required
-                autoFocus
-                className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
-              />
-              {pwMsg && <p className={`text-xs ${pwMsg.ok ? 'text-emerald-600' : 'text-red-500'}`}>{pwMsg.text}</p>}
-              <div className="flex gap-2 pt-1">
-                <button type="button" onClick={() => setShowChangePw(false)}
-                  className="flex-1 border border-gray-200 text-gray-600 font-medium py-2.5 rounded-xl text-sm hover:bg-gray-50 transition-colors">
-                  Cancel
-                </button>
-                <button type="submit" disabled={pwLoading || !newPw}
-                  className="flex-1 bg-gray-900 hover:bg-gray-700 disabled:bg-gray-300 text-white font-semibold py-2.5 rounded-xl text-sm transition-colors">
-                  {pwLoading ? '...' : 'Update'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
 
       {/* New Application slide-in panel */}
       {showNewPanel && (

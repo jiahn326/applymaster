@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import ChangePasswordCard from '../components/ChangePasswordCard'
 
 const DEFAULT_TEMPLATE = `[NAME]
 [CONTACT]
@@ -68,18 +69,18 @@ export default function SettingsPage() {
       <main className="max-w-3xl mx-auto px-6 py-8 space-y-6">
         <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
           <h2 className="text-sm font-semibold text-gray-900 mb-1">Cover Letter Template</h2>
-          <p className="text-xs text-gray-400 mb-4">
-            Filled in automatically:{' '}
-            <code className="bg-gray-100 px-1 rounded">[NAME]</code>{' '}
-            <code className="bg-gray-100 px-1 rounded">[CONTACT]</code>{' '}
-            <code className="bg-gray-100 px-1 rounded">[DATE]</code>{' '}
-            <code className="bg-gray-100 px-1 rounded">[COMPANY]</code>{' '}
-            <code className="bg-gray-100 px-1 rounded">[POSITION]</code>{' '}
-            (the longer forms like <code className="bg-gray-100 px-1 rounded">[COMPANY_NAME]</code> work too).
-            Everything between your greeting ("Dear …,") and your closing ("Thank you…" / "Sincerely") is tailored to each job
-            using your resume — any <code className="bg-gray-100 px-1 rounded">[NOTE]</code> there, like{' '}
-            <code className="bg-gray-100 px-1 rounded">[BODY]</code>, is written for you. The greeting and closing stay exactly as you wrote them.
-          </p>
+          <ul className="text-xs text-gray-500 mb-4 space-y-1 list-disc pl-4">
+            <li>
+              Filled in automatically: <code className="bg-gray-100 px-1 rounded">[NAME]</code> <code className="bg-gray-100 px-1 rounded">[CONTACT]</code>{' '}
+              <code className="bg-gray-100 px-1 rounded">[DATE]</code> <code className="bg-gray-100 px-1 rounded">[COMPANY]</code> <code className="bg-gray-100 px-1 rounded">[POSITION]</code>{' '}
+              (longer forms like <code className="bg-gray-100 px-1 rounded">[COMPANY_NAME]</code> work too).
+            </li>
+            <li>Your greeting (“Dear …,”) and closing (“Thank you…”, “Sincerely”) stay exactly as you write them.</li>
+            <li>
+              Everything in between is tailored to each job using your resume. Facts you write there are used as true,
+              and any <code className="bg-gray-100 px-1 rounded">[NOTE]</code> such as <code className="bg-gray-100 px-1 rounded">[BODY]</code> is written for you.
+            </li>
+          </ul>
 
           {loading ? (
             <div className="h-64 flex items-center justify-center">
@@ -110,6 +111,8 @@ export default function SettingsPage() {
             </button>
           </div>
         </div>
+
+        <ChangePasswordCard />
       </main>
     </div>
   )
