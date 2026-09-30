@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
 import { api } from '../lib/api'
 import { useAbortable } from '../hooks/useAbortable'
+import { errorMessage, type ApplicationSummary, type ResumeRow, type UserSettingsRow } from '../lib/records'
 import type { ResumeStructure } from '../lib/parseResumeStructure'
 import { APPLIED_THROUGH, inferAppliedThrough, type AppliedThrough } from '../lib/appliedThrough'
 import type { JobFitAnalysis } from '../lib/analyzeJobFit'
@@ -15,7 +16,7 @@ type Step = 'paste' | 'analyzing' | 'analysis' | 'form'
 const ANALYZE_TIMEOUT_MS = 90_000
 
 interface Props {
-  onSaved: (app: any) => void
+  onSaved: (app: ApplicationSummary) => void
   onClose: () => void
 }
 
@@ -43,7 +44,7 @@ export default function NewApplicationPanel({ onSaved, onClose }: Props) {
   const pasteRef = useRef<HTMLTextAreaElement>(null)
   const analyzeJob = useAbortable()
   const tailorJob = useAbortable({ abortOnUnmount: false }) // keeps tailoring if the panel is closed
-  const savedAppRef = useRef<any>(null)
+  const savedAppRef = useRef<ApplicationSummary | null>(null)
 
   useEffect(() => {
     pasteRef.current?.focus()
@@ -99,9 +100,9 @@ export default function NewApplicationPanel({ onSaved, onClose }: Props) {
       ])
 
       if (signal.aborted) return
-      const activeId = (settingsData as any)?.data?.active_resume_id
-      const resumeList = (resumesData as any)?.data ?? []
-      const activeResume = resumeList.find((r: any) => r.id === activeId) ?? resumeList[0]
+      const activeId = (settingsData as { data: UserSettingsRow | null }).data?.active_resume_id
+      const resumeList = (resumesData as { data: ResumeRow[] | null }).data ?? []
+      const activeResume = resumeList.find(r => r.id === activeId) ?? resumeList[0]
       const rawText = activeResume?.content?.raw_text as string | undefined
       const currentLocation = activeResume?.content?.current_location as string | undefined
       setResumeRawText(rawText)
@@ -144,10 +145,10 @@ export default function NewApplicationPanel({ onSaved, onClose }: Props) {
       }
 
       setStep('analysis')
-    } catch (err: any) {
+    } catch (err) {
       if (signal.aborted && !timedOut) return
       setStep('paste')
-      setError(err.message ?? 'Failed to analyze. Try pasting the job description text instead.')
+      setError(errorMessage(err, 'Failed to analyze. Try pasting the job description text instead.'))
     } finally {
       clearTimeout(timer)
       clearTimeout(slowTimer)
@@ -217,8 +218,8 @@ export default function NewApplicationPanel({ onSaved, onClose }: Props) {
       } else {
         onSaved(data)
       }
-    } catch (err: any) {
-      setError(err.message ?? 'Failed to save.')
+    } catch (err) {
+      setError(errorMessage(err, 'Failed to save.'))
       setSaving(false)
     }
   }
@@ -246,7 +247,7 @@ export default function NewApplicationPanel({ onSaved, onClose }: Props) {
       if (insertError) throw insertError
       onSaved(data)
     } catch (err) {
-      setError(err instanceof Error ? err.message : (err as { message?: string })?.message ?? 'Failed to save.')
+      setError(errorMessage(err, 'Failed to save.'))
     } finally {
       setSaving(false)
     }
@@ -277,8 +278,8 @@ export default function NewApplicationPanel({ onSaved, onClose }: Props) {
         .single()
       if (insertError) throw insertError
       onSaved(data)
-    } catch (err: any) {
-      setError(err.message ?? 'Failed to save.')
+    } catch (err) {
+      setError(errorMessage(err, 'Failed to save.'))
       setSaving(false)
     }
   }

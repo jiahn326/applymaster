@@ -65,9 +65,16 @@ const clamp = (n: unknown) => Math.max(0, Math.min(100, Math.round(Number(n) || 
 // Takes the model's category scores and returns the full analysis the app stores:
 // category verdicts from the score bands, a weighted overall score, and the verdict
 // (Apply ≥ 70, Maybe ≥ 50, otherwise Skip; a stated dealbreaker always means Skip).
-// deno-lint-ignore no-explicit-any
-export function computeFit(raw: any) {
-  const categories = (raw?.categories ?? []).map((c: { score?: unknown }) => {
+// The model's reply, before code fills in verdicts and the overall score
+export interface RawFit {
+  verdictReason?: unknown
+  dealbreaker?: unknown
+  categories?: { label: string; score?: unknown; [key: string]: unknown }[]
+  [key: string]: unknown
+}
+
+export function computeFit(raw: RawFit) {
+  const categories = (raw?.categories ?? []).map(c => {
     const score = clamp(c.score)
     return { ...c, score, verdict: categoryVerdict(score) }
   })

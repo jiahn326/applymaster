@@ -6,18 +6,17 @@ import { fillFixedPlaceholders, splitTemplate, assembleLetter, middleWordRange, 
 
 const ALLOWED_ORIGIN = Deno.env.get('ALLOWED_ORIGIN') ?? '*'
 
-function corsHeaders(origin: string) {
-  const allowed = ALLOWED_ORIGIN === '*' ? '*' : ALLOWED_ORIGIN
+function corsHeaders() {
   return {
-    'Access-Control-Allow-Origin': allowed,
+    'Access-Control-Allow-Origin': ALLOWED_ORIGIN,
     'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
   }
 }
 
-function json(body: unknown, status = 200, origin = '*') {
+function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' },
+    headers: { ...corsHeaders(), 'Content-Type': 'application/json' },
   })
 }
 
@@ -31,32 +30,31 @@ const REQUIRED: Record<string, string[]> = {
 }
 
 Deno.serve(async (req) => {
-  const origin = req.headers.get('origin') ?? '*'
 
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders(origin) })
+    return new Response('ok', { headers: corsHeaders() })
   }
 
   // Verify JWT via Supabase auth
   const authHeader = req.headers.get('Authorization') ?? ''
   const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : authHeader
-  if (!token) return json({ error: 'Unauthorized' }, 401, origin)
+  if (!token) return json({ error: 'Unauthorized' }, 401)
 
   const supabase = createClient(
     Deno.env.get('SUPABASE_URL')!,
     Deno.env.get('SUPABASE_ANON_KEY')!
   )
   const { error: authError } = await supabase.auth.getUser(token)
-  if (authError) return json({ error: 'Unauthorized' }, 401, origin)
+  if (authError) return json({ error: 'Unauthorized' }, 401)
 
   try {
     const { action, payload } = await req.json()
 
     // Validate required fields
     const required = REQUIRED[action]
-    if (!required) return json({ error: 'Unknown action' }, 400, origin)
+    if (!required) return json({ error: 'Unknown action' }, 400)
     const missing = required.filter(k => !payload?.[k])
-    if (missing.length) return json({ error: `Missing fields: ${missing.join(', ')}` }, 400, origin)
+    if (missing.length) return json({ error: `Missing fields: ${missing.join(', ')}` }, 400)
 
     // req.signal aborts when the browser cancels, which stops the Claude request too
     const client: Claude = { anthropic: new Anthropic({ apiKey: Deno.env.get('ANTHROPIC_API_KEY')! }), signal: req.signal }
@@ -69,9 +67,9 @@ Deno.serve(async (req) => {
     else if (action === 'parseResumeStructure') result = await parseResumeStructure(client, payload.rawText)
     else if (action === 'generateWhyCompany') result = await generateWhyCompany(client, payload.company, payload.role, payload.jobDescription, payload.resumeRawText, payload.length)
 
-    return json(result, 200, origin)
+    return json(result, 200)
   } catch (err) {
-    return json({ error: err.message }, 500, origin)
+    return json({ error: err.message }, 500)
   }
 })
 

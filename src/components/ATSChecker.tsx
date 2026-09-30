@@ -20,7 +20,7 @@ const NON_STANDARD_PATTERNS = [
   /my story/i, /career highlights/i, /things i do/i, /my work/i,
 ]
 
-const SPECIAL_CHARS = /[★■◆▶→←●◇▪▫✓✗✘☑☒🔹🔸💼🎯⭐]/g
+const SPECIAL_CHARS = /[★■◆▶→←●◇▪▫✓✗✘☑☒🔹🔸💼🎯⭐]/gu
 
 const DATE_FORMATS = [
   { pattern: /\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{4}/g, name: 'Month YYYY' },

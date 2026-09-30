@@ -6,6 +6,7 @@ import { parseResumeStructure } from '../lib/parseResumeStructure'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
 import { useAbortable } from '../hooks/useAbortable'
+import { errorMessage, type ResumeRow, type UserSettingsRow } from '../lib/records'
 
 type UploadStatus = 'idle' | 'parsing' | 'structuring' | 'saving' | 'done' | 'error'
 
@@ -52,7 +53,12 @@ function LocationCombobox({ value, onChange }: { value: string; onChange: (v: st
   const containerRef = useRef<HTMLDivElement>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  useEffect(() => { setQuery(value) }, [value])
+  // Follow `value` when the parent changes it (adjusting state during render, not in an effect)
+  const [prevValue, setPrevValue] = useState(value)
+  if (value !== prevValue) {
+    setPrevValue(value)
+    setQuery(value)
+  }
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -120,11 +126,7 @@ function LocationCombobox({ value, onChange }: { value: string; onChange: (v: st
   )
 }
 
-interface ResumeVersion {
-  id: string
-  created_at: string
-  content: { file_name?: string; current_location?: string; raw_text?: string; structure?: any }
-}
+type ResumeVersion = ResumeRow
 
 const STATUS_MESSAGES: Record<UploadStatus, string> = {
   idle:        '',
@@ -155,14 +157,14 @@ export default function UploadResumePage() {
     ]).then(([{ data: resumeData }, { data: settings }]) => {
       if (resumeData) {
         setVersions(resumeData as ResumeVersion[])
-        const activeId = (settings as any)?.active_resume_id
+        const activeId = (settings as UserSettingsRow | null)?.active_resume_id
         const active = resumeData.find((r: ResumeVersion) => r.id === activeId) ?? resumeData[0]
         if (active?.content?.current_location) {
           setCurrentLocation(active.content.current_location)
         }
         if (active) setActiveResumeId(active.id)
-      } else if ((settings as any)?.active_resume_id) {
-        setActiveResumeId((settings as any).active_resume_id)
+      } else if ((settings as UserSettingsRow | null)?.active_resume_id) {
+        setActiveResumeId((settings as UserSettingsRow).active_resume_id)
       }
     })
   }, [])
@@ -197,9 +199,9 @@ export default function UploadResumePage() {
       await handleSetActive((inserted as ResumeVersion).id)
       setStatus('done')
       setTimeout(() => navigate('/dashboard'), 1200)
-    } catch (err: any) {
+    } catch (err) {
       if (signal.aborted) return
-      setError(err.message ?? 'Something went wrong.')
+      setError(errorMessage(err, 'Something went wrong.'))
       setStatus('error')
     }
   }

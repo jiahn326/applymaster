@@ -276,7 +276,7 @@ export default function DashboardPage() {
       }
     }
     load()
-  }, [])
+  }, [navigate])
 
   function handleSaved(app: Application) {
     setApplications(prev => [app, ...prev])

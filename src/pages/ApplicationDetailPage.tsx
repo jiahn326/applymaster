@@ -12,6 +12,8 @@ import { generateCoverLetter } from '../lib/generateCoverLetter'
 import ResumeChangesView from '../components/ResumeChangesView'
 import FitReasons from '../components/FitReasons'
 import { useAbortable } from '../hooks/useAbortable'
+import { useSlowFlag } from '../hooks/useSlowFlag'
+import { errorMessage, type ResumeRow, type UserSettingsRow } from '../lib/records'
 import { resumeFileName, resolveTailoring, carryOverUndone, resumeToText } from '../lib/resumeUtils'
 import { APPLIED_THROUGH, appliedThroughLabel } from '../lib/appliedThrough'
 import { STATUS_CONFIG, TRACKED_STATUSES, type AppStatus } from '../lib/status'
@@ -72,17 +74,14 @@ export default function ApplicationDetailPage() {
   const [tailoring, setTailoring] = useState(false)
   // Shown after Re-tailor: the new result replaces the old one, so say how it compares
   const [retailorNote, setRetailorNote] = useState<{ count: number; previous: number } | null>(null)
-  const [tailoringSlow, setTailoringSlow] = useState(false)
   const [reanalyzing, setReanalyzing] = useState(false)
   const [coverLetter, setCoverLetter] = useState<string | null>(null)
   const [coverLetterSubmitted, setCoverLetterSubmitted] = useState(false)
   const [generatingCL, setGeneratingCL] = useState(false)
-  const [generatingCLSlow, setGeneratingCLSlow] = useState(false)
   const [coverLetterError, setCoverLetterError] = useState<string | null>(null)
   const [copiedCL, setCopiedCL] = useState(false)
   const [whyAnswer, setWhyAnswer] = useState<string | null>(null)
   const [generatingWhy, setGeneratingWhy] = useState(false)
-  const [generatingWhySlow, setGeneratingWhySlow] = useState(false)
   const [whyLength, setWhyLength] = useState<'short' | 'medium' | 'long'>('medium')
   const [copiedWhy, setCopiedWhy] = useState(false)
   const [fitExpanded, setFitExpanded] = useState(false)
@@ -99,23 +98,9 @@ export default function ApplicationDetailPage() {
   }, [editingMeta, editingNotes, editingUrl, editingJd])
 
   // Slow warning for long-running API calls
-  useEffect(() => {
-    if (!tailoring) { setTailoringSlow(false); return }
-    const t = setTimeout(() => setTailoringSlow(true), 12000)
-    return () => clearTimeout(t)
-  }, [tailoring])
-
-  useEffect(() => {
-    if (!generatingCL) { setGeneratingCLSlow(false); return }
-    const t = setTimeout(() => setGeneratingCLSlow(true), 12000)
-    return () => clearTimeout(t)
-  }, [generatingCL])
-
-  useEffect(() => {
-    if (!generatingWhy) { setGeneratingWhySlow(false); return }
-    const t = setTimeout(() => setGeneratingWhySlow(true), 12000)
-    return () => clearTimeout(t)
-  }, [generatingWhy])
+  const tailoringSlow = useSlowFlag(tailoring)
+  const generatingCLSlow = useSlowFlag(generatingCL)
+  const generatingWhySlow = useSlowFlag(generatingWhy)
 
   useEffect(() => {
     async function load() {
@@ -127,8 +112,9 @@ export default function ApplicationDetailPage() {
       const a = appData as Application
       setApp(a)
       setNotesValue(a?.notes ?? '')
-      const activeId = (settingsData as any)?.active_resume_id
-      const resume = resumesData?.find((r: any) => r.id === activeId) ?? resumesData?.[0]
+      const activeId = (settingsData as UserSettingsRow | null)?.active_resume_id
+      const resumes = (resumesData ?? []) as ResumeRow[]
+      const resume = resumes.find(r => r.id === activeId) ?? resumes[0]
       setStructure(resume?.content?.structure ?? null)
       setRawText(resume?.content?.raw_text ?? '')
       setCurrentLocation(resume?.content?.current_location ?? undefined)
@@ -261,8 +247,8 @@ export default function ApplicationDetailPage() {
       if (signal.aborted) return
       await supabase.from('applications').update({ fit_analysis: result }).eq('id', id)
       setApp({ ...app, fit_analysis: result })
-    } catch (err: any) {
-      if (!signal.aborted) alert('Analysis failed: ' + (err.message ?? 'Unknown error'))
+    } catch (err) {
+      if (!signal.aborted) alert('Analysis failed: ' + errorMessage(err, 'Unknown error'))
     } finally {
       if (reanalyzeJob.isCurrent(signal)) setReanalyzing(false)
     }
@@ -280,8 +266,8 @@ export default function ApplicationDetailPage() {
       setApp({ ...app, tailored_resume: result })
       if (app.tailored_resume) setRetailorNote({ count: result.diffs.length, previous: app.tailored_resume.diffs.length })
       else showToast('✉️ Want to generate a cover letter too?')
-    } catch (err: any) {
-      if (!signal.aborted) alert('Tailoring failed: ' + (err.message ?? 'Unknown error'))
+    } catch (err) {
+      if (!signal.aborted) alert('Tailoring failed: ' + errorMessage(err, 'Unknown error'))
     } finally {
       if (tailorJob.isCurrent(signal)) setTailoring(false)
     }
@@ -303,8 +289,8 @@ export default function ApplicationDetailPage() {
       if (signal.aborted) return
       setCoverLetter(result)
       await supabase.from('applications').update({ cover_letter: result }).eq('id', app.id)
-    } catch (err: any) {
-      if (!signal.aborted) setCoverLetterError(err.message ?? 'Unknown error')
+    } catch (err) {
+      if (!signal.aborted) setCoverLetterError(errorMessage(err, 'Unknown error'))
     } finally {
       if (coverLetterJob.isCurrent(signal)) setGeneratingCL(false)
     }
@@ -326,8 +312,8 @@ export default function ApplicationDetailPage() {
       const result = await api.generateWhyCompany(app.company, app.role, app.job_description, rawText, length, signal)
       if (signal.aborted) return
       setWhyAnswer(result)
-    } catch (err: any) {
-      if (!signal.aborted) alert('Generation failed: ' + (err.message ?? 'Unknown error'))
+    } catch (err) {
+      if (!signal.aborted) alert('Generation failed: ' + errorMessage(err, 'Unknown error'))
     } finally {
       if (whyJob.isCurrent(signal)) setGeneratingWhy(false)
     }

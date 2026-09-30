@@ -19,7 +19,7 @@ export async function extractTextFromPdf(file: File): Promise<string> {
     const lineMap = new Map<number, string[]>()
     for (const item of content.items) {
       if (!('str' in item) || !item.str.trim()) continue
-      const y = Math.round((item as any).transform[5])
+      const y = Math.round(item.transform[5])
       if (!lineMap.has(y)) lineMap.set(y, [])
       lineMap.get(y)!.push(item.str)
     }
