@@ -86,6 +86,8 @@ export default function ApplicationDetailPage() {
   const [generatingCL, setGeneratingCL] = useState(false)
   const [coverLetterError, setCoverLetterError] = useState<string | null>(null)
   const [copiedCL, setCopiedCL] = useState(false)
+  const [editingCL, setEditingCL] = useState(false)
+  const [clValue, setClValue] = useState('')
   const [fitExpanded, setFitExpanded] = useState(false)
   const [editingNotes, setEditingNotes] = useState(false)
   const [notesValue, setNotesValue] = useState('')
@@ -93,11 +95,11 @@ export default function ApplicationDetailPage() {
 
   // Warn on browser close/refresh when editing
   useEffect(() => {
-    const unsaved = editingMeta || editingNotes || editingUrl || editingJd
+    const unsaved = editingMeta || editingNotes || editingUrl || editingJd || editingCL
     const handler = (e: BeforeUnloadEvent) => { if (unsaved) { e.preventDefault(); e.returnValue = '' } }
     window.addEventListener('beforeunload', handler)
     return () => window.removeEventListener('beforeunload', handler)
-  }, [editingMeta, editingNotes, editingUrl, editingJd])
+  }, [editingMeta, editingNotes, editingUrl, editingJd, editingCL])
 
   // Slow warning for long-running API calls
   const tailoringSlow = useSlowFlag(tailoring)
@@ -276,6 +278,22 @@ export default function ApplicationDetailPage() {
     }
   }
 
+  // Regenerating replaces the whole letter, including edits made in the app
+  function regenerateCoverLetter() {
+    if (coverLetter && !confirm('Regenerate the cover letter? This replaces the current letter, including any edits.')) return
+    setEditingCL(false)
+    handleGenerateCoverLetter()
+  }
+
+  async function saveCoverLetterEdit() {
+    if (!app) return
+    const next = clValue.trim()
+    setCoverLetter(next)
+    setEditingCL(false)
+    const { error } = await supabase.from('applications').update({ cover_letter: next }).eq('id', app.id)
+    if (error) alert('Could not save the cover letter: ' + error.message)
+  }
+
   async function handleGenerateCoverLetter() {
     if (!app?.job_description) return
     const signal = coverLetterJob.start()
@@ -368,7 +386,7 @@ export default function ApplicationDetailPage() {
       <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
         <div className="max-w-6xl mx-auto px-6 h-14 flex items-center gap-4">
           <button onClick={() => {
-            if ((editingMeta || editingNotes || editingUrl || editingJd) && !confirm('Unsaved changes will be lost. Leave anyway?')) return
+            if ((editingMeta || editingNotes || editingUrl || editingJd || editingCL) && !confirm('Unsaved changes will be lost. Leave anyway?')) return
             navigate('/dashboard')
           }} className="text-gray-400 hover:text-gray-700 transition-colors text-lg">←</button>
           {editingMeta ? (
@@ -568,7 +586,7 @@ export default function ApplicationDetailPage() {
                 </button>
               )}
               {coverLetter && (
-                <button onClick={handleGenerateCoverLetter} disabled={generatingCL}
+                <button onClick={regenerateCoverLetter} disabled={generatingCL}
                   className="text-xs font-semibold bg-white border border-amber-300 text-amber-800 hover:bg-amber-100 disabled:opacity-40 px-3 py-1.5 rounded-lg transition-colors">
                   {generatingCL ? '✨ Regenerating...' : '↺ Regenerate cover letter'}
                 </button>
@@ -676,6 +694,21 @@ export default function ApplicationDetailPage() {
                         {copiedCL ? <span className="text-emerald-600">✓ Copied!</span> : <span className="text-gray-600">Copy body</span>}
                       </button>
                     </div>
+                    {editingCL ? (
+                      <div className="space-y-2">
+                        <textarea autoFocus value={clValue} onChange={e => setClValue(e.target.value)}
+                          className="w-full text-sm text-gray-700 leading-relaxed border border-gray-200 rounded-xl p-4 focus:outline-none focus:ring-2 focus:ring-gray-900 resize-y h-96" />
+                        <div className="flex items-center gap-2">
+                          <button onClick={saveCoverLetterEdit} className="text-xs font-semibold text-white bg-gray-900 hover:bg-gray-700 px-3 py-1.5 rounded-lg">Save</button>
+                          <button onClick={() => setEditingCL(false)} className="text-xs text-gray-500 hover:text-gray-700 px-2 py-1.5">Cancel</button>
+                          {placeholderCount(clValue) > 0 && (
+                            <span className="text-xs text-amber-700">{placeholderCount(clValue)} placeholder{placeholderCount(clValue) === 1 ? '' : 's'} left to fill in</span>
+                          )}
+                          <span className="ml-auto text-xs text-gray-400">{clValue.trim().length} chars</span>
+                        </div>
+                      </div>
+                    ) : (
+                    <>
                     <pre className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed font-sans bg-gray-50 rounded-xl p-4 border border-gray-100">
                       {splitPlaceholders(coverLetter).map((part, i) => part.placeholder
                         ? <mark key={i} className="bg-amber-100 text-amber-900 rounded px-0.5 font-medium">{part.text}</mark>
@@ -683,11 +716,15 @@ export default function ApplicationDetailPage() {
                     </pre>
                     {placeholderCount(coverLetter) > 0 && (
                       <p className="text-xs text-amber-700">
-                        Your resume doesn't include a story for the highlighted part, so it was left as a placeholder instead of made up. Replace it with what really happened before sending.
+                        Your resume doesn't include a story for the highlighted part, so it was left as a placeholder instead of made up. Use Edit to replace it with what really happened before sending.
                       </p>
                     )}
+                    <button onClick={() => { setClValue(coverLetter); setEditingCL(true) }}
+                      className="text-xs font-medium text-gray-500 hover:text-gray-900 underline underline-offset-2">Edit cover letter</button>
+                    </>
+                    )}
                     <div className="flex gap-2">
-                      <button onClick={handleGenerateCoverLetter} disabled={generatingCL || !app.job_description}
+                      <button onClick={regenerateCoverLetter} disabled={generatingCL || !app.job_description}
                         className="flex-1 bg-gray-50 border border-gray-200 text-gray-500 font-medium py-2.5 rounded-xl hover:bg-gray-100 transition-all text-sm disabled:opacity-40">
                         {generatingCL ? '✨ Regenerating...' : '↺ Regenerate'}
                       </button>
