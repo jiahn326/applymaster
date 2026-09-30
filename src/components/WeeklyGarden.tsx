@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import {
-  GOAL_CHOICES, STAGES, STAGE_NAMES, localDayKey, weeklyCounts, stageFor, weekStreak, progressMessage,
+  GOAL_CHOICES, STAGES, STAGE_NAMES, localDayKey, weeklyCounts, stageFor, stageThresholds, stageRange, weekStreak, progressMessage,
 } from '../lib/garden'
 
 // Per-viewer memory: how many applications this week the user has already seen
@@ -31,6 +31,7 @@ export default function WeeklyGarden({ applications, goal, onGoalChange }: {
   // Mobile: the garden row starts folded so the list stays on the first screen
   const [open, setOpen] = useState(false)
   const [picking, setPicking] = useState(false)
+  const [explaining, setExplaining] = useState(false)
   const [grew, setGrew] = useState(false)
   const [celebrate, setCelebrate] = useState(false)
 
@@ -89,6 +90,32 @@ export default function WeeklyGarden({ applications, goal, onGoalChange }: {
                 {goal}
               </button>
               {' '}this week
+              <button
+                onClick={() => setExplaining(e => !e)}
+                aria-label="How the garden works"
+                className="ml-1.5 inline-flex w-4 h-4 items-center justify-center rounded-full border border-gray-300 text-[10px] font-bold text-gray-400 hover:text-gray-700 hover:border-gray-500 align-middle"
+              >
+                i
+              </button>
+              {explaining && (
+                <>
+                  <span className="fixed inset-0 z-10" onClick={() => setExplaining(false)} />
+                  <span className="absolute -left-16 sm:left-0 top-full mt-2 z-20 w-72 max-w-[calc(100vw-3rem)] bg-white border border-gray-200 rounded-xl shadow-lg p-4 block">
+                    <span className="block text-sm font-semibold text-gray-900 mb-2">How your garden grows</span>
+                    {STAGES.map((e, i) => (
+                      <span key={e} className="flex items-center gap-2 text-xs text-gray-600 py-0.5">
+                        <span className="text-base w-5 text-center">{e}</span>
+                        <span className="w-10 font-semibold text-gray-800">{stageRange(i, goal)}</span>
+                        <span>{STAGE_NAMES[i]}</span>
+                      </span>
+                    ))}
+                    <span className="block text-[11px] text-gray-400 mt-2 leading-relaxed">
+                      Counts applications sent Monday to Sunday. Each Monday a new seed starts,
+                      and last week's plant stays in your garden. 🔥 is how many weeks in a row you reached your goal.
+                    </span>
+                  </span>
+                </>
+              )}
               {picking && (
                 <>
                   <span className="fixed inset-0 z-10" onClick={() => setPicking(false)} />
@@ -145,11 +172,25 @@ export default function WeeklyGarden({ applications, goal, onGoalChange }: {
           </div>
         </div>
 
+        {/* Progress bar with each stage marked where it starts; reached stages in color */}
         <div className="h-2 bg-gray-100 rounded-full mt-3 overflow-hidden">
           <div
             className={`h-full rounded-full transition-all duration-700 ${done ? 'bg-emerald-500' : 'bg-lime-500'}`}
             style={{ width: `${pct}%` }}
           />
+        </div>
+        <div className="relative h-7 mt-1">
+          {stageThresholds(goal).map((t, i) => (
+            <span
+              key={i}
+              title={`${STAGE_NAMES[i]} (${stageRange(i, goal)})`}
+              className={`absolute flex flex-col items-center ${i === 0 ? '' : i === STAGES.length - 1 ? '-translate-x-full' : '-translate-x-1/2'} ${count >= t ? '' : 'opacity-40 grayscale'}`}
+              style={{ left: `${(t / goal) * 100}%` }}
+            >
+              <span className="text-sm leading-none select-none">{STAGES[i]}</span>
+              <span className="text-[9px] text-gray-400 mt-0.5">{t}</span>
+            </span>
+          ))}
         </div>
 
         <button onClick={() => setOpen(o => !o)} className="md:hidden mt-2 text-xs text-gray-400 hover:text-gray-700">

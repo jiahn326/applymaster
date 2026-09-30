@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { localDayKey, mondayOf, weeklyCounts, stageFor, weekStreak, progressMessage } from './garden'
+import { localDayKey, mondayOf, weeklyCounts, stageFor, stageRange, stageThresholds, weekStreak, progressMessage } from './garden'
 
 // Local-time dates, so the tests hold in any time zone
 const at = (y: number, m: number, d: number, h = 12) => new Date(y, m - 1, d, h)
@@ -29,6 +29,18 @@ describe('weeklyCounts', () => {
 describe('stageFor', () => {
   it('grows from seed to blossom as the week fills', () => {
     expect([0, 1, 4, 5, 7, 8, 9, 10, 25].map(n => stageFor(n, 10))).toEqual([0, 1, 1, 2, 2, 3, 3, 4, 4])
+  })
+})
+
+describe('stageThresholds / stageRange', () => {
+  it('scales the stages with the goal', () => {
+    expect(stageThresholds(10)).toEqual([0, 1, 5, 8, 10])
+    expect([0, 1, 2, 3, 4].map(i => stageRange(i, 10))).toEqual(['0', '1–4', '5–7', '8–9', '10+'])
+    expect([0, 1, 2, 3, 4].map(i => stageRange(i, 5))).toEqual(['0', '1–2', '3', '4', '5+'])
+  })
+  it('agrees with stageFor at every boundary', () => {
+    for (const goal of [5, 10, 15, 20])
+      stageThresholds(goal).forEach((t, i) => expect(stageFor(t, goal)).toBe(i))
   })
 })
 

@@ -7,7 +7,7 @@ export const GARDEN_WEEKS = 8
 
 // Seed → sprout → herb → tree → blossom (goal reached)
 export const STAGES = ['🌰', '🌱', '🌿', '🌳', '🌸'] as const
-export const STAGE_NAMES = ['Seed', 'Sprout', 'Growing', 'Almost there', 'Bloomed'] as const
+export const STAGE_NAMES = ['Seed', 'Sprout', 'Growing', 'Almost there', 'Bloomed: goal reached!'] as const
 
 // "2026-09-29" in local time (toISOString would use UTC and can shift the day)
 export function localDayKey(d: Date): string {
@@ -46,14 +46,27 @@ export function weeklyCounts(dates: string[], now: Date, weeks = GARDEN_WEEKS): 
   return list
 }
 
-// 0 seed (nothing yet), 1 sprout (<50%), 2 growing (<75%), 3 almost (<100%), 4 bloomed
+// Lowest weekly count for each stage: seed 0, sprout 1, growing half the goal,
+// almost there three quarters, bloom at the goal
+export function stageThresholds(goal: number): number[] {
+  return [0, 1, Math.ceil(goal * 0.5), Math.ceil(goal * 0.75), goal]
+}
+
+// 0 seed, 1 sprout, 2 growing, 3 almost there, 4 bloomed
 export function stageFor(count: number, goal: number): number {
-  if (count <= 0) return 0
-  const ratio = count / goal
-  if (ratio >= 1) return 4
-  if (ratio >= 0.75) return 3
-  if (ratio >= 0.5) return 2
-  return 1
+  const t = stageThresholds(goal)
+  let stage = 0
+  for (let i = 1; i < t.length; i++) if (count >= t[i]) stage = i
+  return stage
+}
+
+// The counts a stage covers, for the legend: "0", "1–4", "8", "10+"
+export function stageRange(stage: number, goal: number): string {
+  const t = stageThresholds(goal)
+  if (stage === 0) return '0'
+  if (stage === t.length - 1) return `${goal}+`
+  const hi = t[stage + 1] - 1
+  return hi > t[stage] ? `${t[stage]}–${hi}` : `${t[stage]}`
 }
 
 // Weeks in a row that reached the goal, counting back from the current week.
