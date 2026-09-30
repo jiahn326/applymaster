@@ -83,16 +83,17 @@ VITE_SUPABASE_URL=your-project-url
 VITE_SUPABASE_ANON_KEY=your-anon-key
 ```
 
-Link the Supabase project, set the Anthropic API key as a secret, and deploy the Edge Function:
+Link the Supabase project, create the tables, set the Anthropic API key as a secret, and deploy the Edge Function:
 
 ```bash
 npx supabase login
 npx supabase link --project-ref your-project-ref
+npx supabase db push
 npx supabase secrets set ANTHROPIC_API_KEY=your-api-key
 npx supabase functions deploy claude-proxy
 ```
 
-Schema changes are kept in `supabase/migrations/` and applied with `npx supabase db push`. These migrations only cover recent changes, not the base tables yet (see Roadmap).
+`db push` applies everything in `supabase/migrations/`: a baseline for the three tables (`resumes`, `applications`, `user_settings`) with row-level security so each user only sees their own rows, followed by later schema changes.
 
 Optionally, set `ALLOWED_ORIGIN` as a secret to restrict which site can call the Edge Function (it allows all origins by default).
 
@@ -112,6 +113,5 @@ npm test
 
 ## Roadmap
 
-- A baseline migration for the full database schema, so a new Supabase project can be set up from this repository alone
 - Compare response and interview rates by source and fit score, once enough applications have results
 - More export templates
