@@ -89,11 +89,13 @@ function parseJsonReply(text: string) {
   }
 }
 
-async function callClaude(client: Claude, prompt: string, maxTokens = 16000) {
+// `noThinking` is for plain copy/extract tasks where reasoning only adds latency
+async function callClaude(client: Claude, prompt: string, maxTokens = 16000, opts: { noThinking?: boolean } = {}) {
   const message = await client.anthropic.messages.create({
     model: 'claude-sonnet-5',
     max_tokens: maxTokens,
     messages: [{ role: 'user', content: prompt }],
+    ...(opts.noThinking ? { thinking: { type: 'disabled' as const } } : {}),
   }, { signal: client.signal })
   if (message.stop_reason === 'max_tokens') throw new Error('Claude response was truncated (max_tokens reached)')
   // Sonnet 5 runs adaptive thinking by default, so content[0] may be a thinking block
@@ -246,29 +248,29 @@ const JD_EXTRACTION_RULES = `"jobDescription": copy this posting's own text verb
 - Leave out only text that isn't part of this posting: site navigation, cookie notices, sign-in prompts, other job listings, share buttons, generic legal/EEO statements, and page footers.
 - Do not summarize, shorten, or rephrase anything that belongs to the posting.`
 
+// Extracting the posting (long verbatim output, no reasoning needed) and scoring fit
+// (reasoning, short output) run as two parallel calls, so the wait is the slower of
+// the two instead of both back to back
 async function analyzeAndExtract(client: Claude, content: string, resumeRawText?: string, currentLocation?: string) {
-  const hasResume = !!resumeRawText
-  const text = await callClaude(client, `You are a job application assistant. From the job posting below, do two things in one pass:
+  const posting = content.slice(0, MAX_POSTING_CHARS)
+  const [jobInfo, fitAnalysis] = await Promise.all([
+    extractPosting(client, posting),
+    resumeRawText ? analyzeJobFit(client, resumeRawText, posting, currentLocation) : Promise.resolve(null),
+  ])
+  return { jobInfo, fitAnalysis }
+}
 
-1. Extract the job info
-2. ${hasResume ? 'Analyze how well the resume matches the job' : 'Skip fit analysis (no resume provided)'}
+async function extractPosting(client: Claude, posting: string) {
+  const text = await callClaude(client, `Extract the job information from this job posting page.
 
 JOB POSTING:
-${content.slice(0, MAX_POSTING_CHARS)}
+${posting}
 
 ${JD_EXTRACTION_RULES}
 
-${hasResume ? `RESUME:
-${resumeRawText}
-${currentLocation ? `\nCANDIDATE'S CURRENT LOCATION: ${currentLocation}` : ''}` : ''}
-${hasResume ? `\n${FIT_RULES}\n` : ''}
 Return JSON only:
-{
-  "jobInfo": { "company": "", "role": "", "jobDescription": "" },
-  "fitAnalysis": ${hasResume ? FIT_SCHEMA : 'null'}
-}`, 12000)
-  const parsed = parseJsonReply(text)
-  return { ...parsed, fitAnalysis: parsed.fitAnalysis ? computeFit(parsed.fitAnalysis) : null }
+{ "company": "", "role": "", "jobDescription": "" }`, 12000, { noThinking: true })
+  return parseJsonReply(text)
 }
 
 async function generateWhyCompany(client: Claude, company: string, role: string, jobDescription: string, resumeRawText?: string, length: 'short' | 'medium' | 'long' = 'medium') {
