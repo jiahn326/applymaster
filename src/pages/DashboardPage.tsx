@@ -5,7 +5,7 @@ import NewApplicationPanel from '../components/NewApplicationPanel'
 import { useAuth } from '../hooks/useAuth'
 import { APPLIED_THROUGH, appliedThroughShort } from '../lib/appliedThrough'
 import SourceIcon from '../components/SourceIcon'
-import WeeklyGarden from '../components/WeeklyGarden'
+import DailyGarden from '../components/DailyGarden'
 import { DEFAULT_GOAL, type Goal } from '../lib/garden'
 import { STATUS_CONFIG, TRACKED_STATUSES, FOLLOW_UP_DAYS, needsFollowUp, daysSince, type AppStatus } from '../lib/status'
 
@@ -95,7 +95,7 @@ export default function DashboardPage() {
 
   useEffect(() => {
     async function load() {
-      // The goal loads with the list so the garden never judges this week against the wrong goal
+      // The goal loads with the list so the garden never judges today against the wrong goal
       const [{ data: resumes }, { data: apps }, { data: settings }] = await Promise.all([
         supabase.from('resumes').select('id').limit(1),
         supabase.from('applications')
@@ -133,7 +133,7 @@ export default function DashboardPage() {
   }
 
   // Applying to a saved posting: it joins the tracked list dated today, so the
-  // weekly garden and the 30-day follow-up count from the day you actually applied
+  // daily garden and the 30-day follow-up count from the day you actually applied
   async function handleMarkApplied(e: React.MouseEvent, id: string) {
     e.stopPropagation()
     const created_at = new Date().toISOString()
@@ -306,10 +306,10 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* One card: this week's goal and garden, then the totals */}
+        {/* One card: today's goal and this week's garden, then the totals */}
         {view === 'applications' && !loading && (
         <div className="bg-white rounded-2xl border border-gray-200 shadow-sm mb-6 flex flex-col lg:flex-row">
-          <WeeklyGarden applications={tracked} goal={goal} onGoalChange={handleGoalChange} />
+          <DailyGarden applications={tracked} goal={goal} onGoalChange={handleGoalChange} />
           <div className="grid grid-cols-4 border-t lg:border-t-0 lg:border-l border-gray-100 lg:w-96 shrink-0">
             {[
               { label: 'Total',        value: counts.total,        color: 'text-gray-900' },

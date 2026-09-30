@@ -1,7 +1,8 @@
-// Weekly goal "garden": each Monday–Sunday week is a plant that grows with the
-// number of applications sent that week. All dates are the user's local dates.
+// Daily goal "garden": each day is a plant that grows with the applications sent
+// that day, and the dashboard shows this Monday–Sunday week as seven plants.
+// All dates are the user's local dates.
 
-// The goal is set as "N a day × D days a week"; the plant grows toward the week's total
+// The goal is "N a day × D days a week"; the 7 − D other days are rest days
 export interface Goal {
   daily: number
   days: number
@@ -13,7 +14,6 @@ export const DAY_CHOICES = [5, 6, 7] as const
 export function weeklyTarget(goal: Goal): number {
   return goal.daily * goal.days
 }
-export const GARDEN_WEEKS = 8
 
 // Seed → sprout → herb → tree → blossom (goal reached)
 export const STAGES = ['🌰', '🌱', '🌿', '🌳', '🌸'] as const
@@ -34,26 +34,36 @@ export function mondayOf(d: Date): Date {
   return m
 }
 
-export interface GardenWeek {
-  start: Date
-  count: number
+// Applications per local day, keyed by localDayKey
+export function countsByDay(dates: string[]): Map<string, number> {
+  const map = new Map<string, number>()
+  for (const iso of dates) {
+    const key = localDayKey(new Date(iso))
+    map.set(key, (map.get(key) ?? 0) + 1)
+  }
+  return map
 }
 
-// The last `weeks` weeks, oldest first; the last one is the current week
-export function weeklyCounts(dates: string[], now: Date, weeks = GARDEN_WEEKS): GardenWeek[] {
-  const thisMonday = mondayOf(now)
-  const list: GardenWeek[] = []
-  for (let i = weeks - 1; i >= 0; i--) {
-    const start = new Date(thisMonday)
-    start.setDate(thisMonday.getDate() - 7 * i)
-    list.push({ start, count: 0 })
-  }
-  const index = new Map(list.map((w, i) => [localDayKey(w.start), i]))
-  for (const iso of dates) {
-    const i = index.get(localDayKey(mondayOf(new Date(iso))))
-    if (i !== undefined) list[i].count++
-  }
-  return list
+export interface GardenDay {
+  date: Date
+  count: number
+  ahead: boolean // later this week, not reached yet
+}
+
+// This week, Monday to Sunday
+export function weekDays(dates: string[], now: Date): GardenDay[] {
+  const counts = countsByDay(dates)
+  const monday = mondayOf(now)
+  const todayKey = localDayKey(now)
+  let pastToday = false
+  return Array.from({ length: 7 }, (_, i) => {
+    const date = new Date(monday)
+    date.setDate(monday.getDate() + i)
+    const key = localDayKey(date)
+    const day = { date, count: counts.get(key) ?? 0, ahead: pastToday }
+    if (key === todayKey) pastToday = true
+    return day
+  })
 }
 
 // Applications on the same local day as `day`
@@ -62,7 +72,7 @@ export function countOnDay(dates: string[], day: Date): number {
   return dates.filter(iso => localDayKey(new Date(iso)) === key).length
 }
 
-// Lowest weekly count for each stage: seed 0, sprout 1, growing half the goal,
+// Lowest daily count for each stage: seed 0, sprout 1, growing half the goal,
 // almost there three quarters, bloom at the goal
 export function stageThresholds(goal: number): number[] {
   return [0, 1, Math.ceil(goal * 0.5), Math.ceil(goal * 0.75), goal]
@@ -76,6 +86,13 @@ export function stageFor(count: number, goal: number): number {
   return stage
 }
 
+// Stages a goal can actually show: with small goals some share a threshold
+// (goal 2: sprout and growing both start at 1), and only the higher one is reachable
+export function reachableStages(goal: number): number[] {
+  const t = stageThresholds(goal)
+  return t.map((_, i) => i).filter(i => i === t.length - 1 || t[i] < t[i + 1])
+}
+
 // The counts a stage covers, for the legend: "0", "1–4", "8", "10+"
 export function stageRange(stage: number, goal: number): string {
   const t = stageThresholds(goal)
@@ -85,23 +102,32 @@ export function stageRange(stage: number, goal: number): string {
   return hi > t[stage] ? `${t[stage]}–${hi}` : `${t[stage]}`
 }
 
-// Weeks in a row that reached the goal, counting back from the current week.
-// The current week only adds to the streak once reached; until then it doesn't break it.
-export function weekStreak(weeks: GardenWeek[], goal: number): number {
-  let streak = 0
-  const current = weeks[weeks.length - 1]
-  if (current && current.count >= goal) streak++
-  for (let i = weeks.length - 2; i >= 0; i--) {
-    if (weeks[i].count < goal) break
-    streak++
+// Days that hit the daily goal, counting back until the streak breaks. Each
+// Monday–Sunday week allows its rest days (7 − goal.days) to fall short without
+// breaking it; one more short day ends the streak. Today only adds once reached
+// and never breaks it, since it isn't over.
+export function dayStreak(dates: string[], now: Date, goal: Goal): number {
+  const counts = countsByDay(dates)
+  const reached = (d: Date) => (counts.get(localDayKey(d)) ?? 0) >= goal.daily
+  const restDays = 7 - goal.days
+  const day = new Date(now)
+  day.setHours(0, 0, 0, 0)
+  let streak = reached(day) ? 1 : 0
+  let week = localDayKey(mondayOf(day))
+  let short = 0
+  for (let i = 0; i < 730; i++) {
+    day.setDate(day.getDate() - 1)
+    const w = localDayKey(mondayOf(day))
+    if (w !== week) { week = w; short = 0 }
+    if (reached(day)) streak++
+    else if (++short > restDays) break
   }
   return streak
 }
 
 export function progressMessage(count: number, goal: number): string {
   if (count >= goal * 2) return 'Double bloom! Beast mode 🚀'
-  if (count >= goal) return 'Bloomed this week! 🌸'
-  const left = goal - count
-  if (count === 0) return 'Plant your first seed this week'
-  return `${left} more to bloom`
+  if (count >= goal) return 'Bloomed today! 🌸'
+  if (count === 0) return 'Plant your first seed today'
+  return `${goal - count} more to bloom today`
 }
