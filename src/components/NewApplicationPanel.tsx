@@ -12,6 +12,8 @@ import { DEV_SAMPLE_JDS } from '../lib/devSampleJds'
 
 type Step = 'paste' | 'analyzing' | 'analysis' | 'form'
 
+const ANALYZE_TIMEOUT_MS = 90_000
+
 interface Props {
   onSaved: (app: any) => void
   onClose: () => void
@@ -35,6 +37,7 @@ export default function NewApplicationPanel({ onSaved, onClose }: Props) {
   const [saving, setSaving] = useState(false)
   const [tailoring, setTailoring] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [analyzeSlow, setAnalyzeSlow] = useState(false)
   const [analyzeStep, setAnalyzeStep] = useState<'fetching' | 'analyzing' | 'checking'>('fetching')
   const [duplicate, setDuplicate] = useState<{ id: string; company: string; role: string; created_at: string; status: string } | null>(null)
   const pasteRef = useRef<HTMLTextAreaElement>(null)
@@ -50,10 +53,21 @@ export default function NewApplicationPanel({ onSaved, onClose }: Props) {
     if (!text.trim()) return
     const signal = analyzeJob.start()
     setStep('analyzing')
+    setAnalyzeSlow(false)
 
-    const timeout = new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error('Request timed out. Please try again.')), 30000)
-    )
+    // Fetching a page (~10s) plus analysis (~20s) can pass 30s on long postings, so
+    // allow 90s; the Cancel button covers anything the user doesn't want to wait for.
+    // On timeout the request itself is cancelled, not just the wait.
+    let timedOut = false
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const timeout = new Promise<never>((_, reject) => {
+      timer = setTimeout(() => {
+        timedOut = true
+        analyzeJob.cancel()
+        reject(new Error('This took longer than 90 seconds. Try again, or paste the job description text instead of the URL.'))
+      }, ANALYZE_TIMEOUT_MS)
+    })
+    const slowTimer = setTimeout(() => setAnalyzeSlow(true), 20000)
 
     try {
       const trimmed = text.trim()
@@ -131,9 +145,13 @@ export default function NewApplicationPanel({ onSaved, onClose }: Props) {
 
       setStep('analysis')
     } catch (err: any) {
-      if (signal.aborted) return
+      if (signal.aborted && !timedOut) return
       setStep('paste')
       setError(err.message ?? 'Failed to analyze. Try pasting the job description text instead.')
+    } finally {
+      clearTimeout(timer)
+      clearTimeout(slowTimer)
+      setAnalyzeSlow(false)
     }
   }
 
@@ -333,6 +351,9 @@ export default function NewApplicationPanel({ onSaved, onClose }: Props) {
                     )
                   })}
                 </div>
+                {analyzeSlow && (
+                  <p className="text-xs text-amber-600">Long postings can take up to a minute — hang tight.</p>
+                )}
                 <button onClick={cancelAnalyze}
                   className="text-xs font-medium text-gray-500 hover:text-gray-900 px-3 py-1.5 rounded-lg hover:bg-gray-100 transition-colors">
                   Cancel
