@@ -51,8 +51,9 @@ export default function WeeklyGarden({ applications, goal, onGoalChange }: {
   }, [count, goal, weekKey])
 
   const pct = Math.min(100, Math.round((count / goal) * 100))
+  const done = count >= goal
 
-  // No card chrome: the dashboard puts this and the stats in one card
+  // No card chrome: the dashboard puts this and the totals in one card
   return (
     <div className="flex-1 min-w-0 px-5 py-4">
       {celebrate && (
@@ -66,86 +67,89 @@ export default function WeeklyGarden({ applications, goal, onGoalChange }: {
 
       <div className="flex flex-col md:flex-row md:items-center gap-4 md:gap-8">
         {/* This week's plant + progress */}
-        <div className="flex items-center gap-4 flex-1 min-w-0 md:max-w-sm">
-          <span
-            key={grew ? 'grew' : 'still'}
-            title={STAGE_NAMES[stage]}
-            className={`text-4xl leading-none select-none ${grew ? 'animate-pop' : ''}`}
-          >
-            {STAGES[stage]}
-          </span>
+        <div className="flex-1 min-w-0 md:max-w-md">
+          <div className="flex items-center gap-4">
+            <span
+              key={grew ? 'grew' : 'still'}
+              title={STAGE_NAMES[stage]}
+              className={`w-14 h-14 shrink-0 rounded-2xl flex items-center justify-center text-4xl leading-none select-none ${done ? 'bg-emerald-50' : 'bg-lime-50'} ${grew ? 'animate-pop' : ''}`}
+            >
+              {STAGES[stage]}
+            </span>
 
-          <div className="flex-1 min-w-0">
-            <div className="flex items-baseline gap-1.5 relative">
-              <span className={`text-xl font-bold ${count >= goal ? 'text-emerald-600' : 'text-gray-900'}`}>{count}</span>
-              <button
-                onClick={() => setPicking(p => !p)}
-                className="text-sm font-semibold text-gray-400 hover:text-gray-700 underline decoration-dotted underline-offset-4"
-                title="Change weekly goal"
-              >
-                / {goal}
-              </button>
-              <span className="text-sm text-gray-400">this week</span>
-              {streak > 0 && (
-                <span className="ml-auto text-xs font-semibold text-orange-500 whitespace-nowrap">🔥 {streak}w</span>
-              )}
-              {picking && (
-                <>
-                  <div className="fixed inset-0 z-10" onClick={() => setPicking(false)} />
-                  <div className="absolute left-0 top-full mt-1 z-20 bg-white border border-gray-200 rounded-xl shadow-lg p-2">
-                    <p className="text-[11px] text-gray-400 px-1 mb-1 whitespace-nowrap">Weekly goal</p>
-                    <div className="flex gap-1">
-                      {GOAL_CHOICES.map(g => (
-                        <button
-                          key={g}
-                          onClick={() => { onGoalChange(g); setPicking(false) }}
-                          className={`px-3 py-1.5 rounded-lg text-sm font-semibold ${g === goal ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
-                        >
-                          {g}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
-
-            <div className="h-1.5 bg-gray-100 rounded-full mt-1.5 overflow-hidden">
-              <div
-                className={`h-full rounded-full transition-all duration-700 ${count >= goal ? 'bg-emerald-500' : 'bg-lime-500'}`}
-                style={{ width: `${pct}%` }}
-              />
-            </div>
-
-            <div className="flex items-center justify-between gap-2 mt-1.5">
-              <span className={`text-xs ${grew ? 'text-emerald-600 font-semibold' : 'text-gray-400'}`}>
-                {grew ? `+1 · ${progressMessage(count, goal)}` : progressMessage(count, goal)}
-              </span>
-              <button onClick={() => setOpen(o => !o)} className="md:hidden text-xs text-gray-400 hover:text-gray-700 whitespace-nowrap">
-                {open ? 'Garden ▴' : 'Garden ▾'}
-              </button>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm text-gray-500 relative">
+                <span className={`text-2xl font-bold mr-1 ${done ? 'text-emerald-600' : 'text-gray-900'}`}>{count}</span>
+                of{' '}
+                <button
+                  onClick={() => setPicking(p => !p)}
+                  className="font-semibold text-gray-600 hover:text-gray-900 underline decoration-dotted underline-offset-4"
+                  title="Change weekly goal"
+                >
+                  {goal}
+                </button>
+                {' '}this week
+                {picking && (
+                  <>
+                    <span className="fixed inset-0 z-10" onClick={() => setPicking(false)} />
+                    <span className="absolute left-0 top-full mt-1 z-20 bg-white border border-gray-200 rounded-xl shadow-lg p-2">
+                      <span className="block text-[11px] text-gray-400 px-1 mb-1 whitespace-nowrap">Weekly goal</span>
+                      <span className="flex gap-1">
+                        {GOAL_CHOICES.map(g => (
+                          <button
+                            key={g}
+                            onClick={() => { onGoalChange(g); setPicking(false) }}
+                            className={`px-3 py-1.5 rounded-lg text-sm font-semibold ${g === goal ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                          >
+                            {g}
+                          </button>
+                        ))}
+                      </span>
+                    </span>
+                  </>
+                )}
+              </p>
+              <p className={`text-xs mt-0.5 ${grew ? 'text-emerald-600 font-semibold' : 'text-gray-400'}`}>
+                {grew && '+1 · '}{progressMessage(count, goal)}
+                {streak > 0 && <> · <span className="text-orange-500 font-semibold whitespace-nowrap">🔥 {streak}-week streak</span></>}
+              </p>
             </div>
           </div>
+
+          <div className="h-2 bg-gray-100 rounded-full mt-3 overflow-hidden">
+            <div
+              className={`h-full rounded-full transition-all duration-700 ${done ? 'bg-emerald-500' : 'bg-lime-500'}`}
+              style={{ width: `${pct}%` }}
+            />
+          </div>
+
+          <button onClick={() => setOpen(o => !o)} className="md:hidden mt-2 text-xs text-gray-400 hover:text-gray-700">
+            {open ? 'Hide garden ▴' : 'My garden ▾'}
+          </button>
         </div>
 
         {/* My garden: one plant per week, oldest first; hover for the week */}
-        <div className={`${open ? 'flex' : 'hidden md:flex'} items-center justify-between md:justify-end gap-1.5`} aria-label="Last 8 weeks">
-          <span className="hidden md:inline text-[11px] text-gray-300 mr-1 whitespace-nowrap">Last 8 weeks</span>
-          {weeks.map((w, i) => {
-            const s = stageFor(w.count, goal)
-            const isCurrent = i === weeks.length - 1
-            return (
-              <span
-                key={w.start.getTime()}
-                title={`${isCurrent ? 'This week' : `Week of ${weekLabel(w.start)}`}: ${w.count} application${w.count === 1 ? '' : 's'}`}
-                className={`w-8 h-8 flex items-center justify-center rounded-lg ${isCurrent ? 'bg-gray-50 ring-1 ring-gray-200' : ''}`}
-              >
-                {w.count === 0 && !isCurrent
-                  ? <span className="w-2 h-2 rounded-full bg-gray-200" />
-                  : <span className="text-xl leading-none select-none">{STAGES[s]}</span>}
-              </span>
-            )
-          })}
+        <div className={`${open ? 'block' : 'hidden md:block'} flex-1 min-w-0`} aria-label="Last 8 weeks">
+          <div className="flex justify-between items-center">
+            {weeks.map((w, i) => {
+              const isCurrent = i === weeks.length - 1
+              return (
+                <span
+                  key={w.start.getTime()}
+                  title={`${isCurrent ? 'This week' : `Week of ${weekLabel(w.start)}`}: ${w.count} application${w.count === 1 ? '' : 's'}`}
+                  className={`w-8 h-8 flex items-center justify-center rounded-lg ${isCurrent ? 'bg-gray-50 ring-1 ring-gray-200' : ''}`}
+                >
+                  {w.count === 0 && !isCurrent
+                    ? <span className="w-2 h-2 rounded-full bg-gray-200" />
+                    : <span className="text-xl leading-none select-none">{STAGES[stageFor(w.count, goal)]}</span>}
+                </span>
+              )
+            })}
+          </div>
+          <div className="flex justify-between text-[10px] text-gray-300 mt-1 px-1">
+            <span>{weekLabel(weeks[0].start)}</span>
+            <span>This week</span>
+          </div>
         </div>
       </div>
     </div>
