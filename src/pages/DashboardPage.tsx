@@ -1,10 +1,12 @@
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import NewApplicationPanel from '../components/NewApplicationPanel'
 import { useAuth } from '../hooks/useAuth'
 import { APPLIED_THROUGH, appliedThroughShort } from '../lib/appliedThrough'
 import SourceIcon from '../components/SourceIcon'
+import WeeklyGarden from '../components/WeeklyGarden'
+import { DEFAULT_WEEKLY_GOAL } from '../lib/garden'
 import { STATUS_CONFIG, TRACKED_STATUSES, FOLLOW_UP_DAYS, needsFollowUp, daysSince, type AppStatus } from '../lib/status'
 
 type Status = AppStatus
@@ -69,184 +71,11 @@ function StatusSelect({ app, onChange }: { app: Application; onChange: (e: React
   )
 }
 
-const DAILY_GOAL = 3
-
-function cellEmoji(count: number) {
-  if (count === 0) return null
-  if (count === 1) return '🌱'
-  if (count === 2) return '🌿'
-  if (count === 3) return '🌳'
-  return '🔥'
-}
-
-function motivationMessage(todayCount: number, streak: number): string {
-  if (todayCount === 0 && streak === 0) return "Let's get started! 💪"
-  if (todayCount === 0) return `You had a ${streak}-day streak. Keep it up!`
-  if (todayCount >= DAILY_GOAL * 2) return 'Beast mode activated 🚀'
-  if (todayCount >= DAILY_GOAL) return "Goal reached! You're crushing it 🎉"
-  if (todayCount === DAILY_GOAL - 1) return 'Almost there! One more 👀'
-  if (streak >= 7) return `${streak} days straight 🔥 Unstoppable!`
-  return 'Good progress, keep going!'
-}
-
-function ActivityHeatmap({ applications }: { applications: { created_at: string }[] }) {
-  const [tooltip, setTooltip] = useState<{ text: string; x: number; y: number } | null>(null)
-  // On phones the grid starts collapsed so the application list is on the first screen
-  const [open, setOpen] = useState(false)
-  const containerRef = useRef<HTMLDivElement>(null)
-
-  const WEEKS = 16
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-
-  const countByDay: Record<string, number> = {}
-  for (const a of applications) {
-    const d = new Date(a.created_at)
-    d.setHours(0, 0, 0, 0)
-    const key = d.toISOString().slice(0, 10)
-    countByDay[key] = (countByDay[key] ?? 0) + 1
-  }
-
-  const startDay = new Date(today)
-  startDay.setDate(today.getDate() - (WEEKS * 7 - 1))
-
-  const cells: { date: Date; count: number }[] = []
-  for (let i = 0; i < WEEKS * 7; i++) {
-    const d = new Date(startDay)
-    d.setDate(startDay.getDate() + i)
-    const key = d.toISOString().slice(0, 10)
-    cells.push({ date: d, count: countByDay[key] ?? 0 })
-  }
-
-  let streak = 0
-  const check = new Date(today)
-  while (true) {
-    const key = check.toISOString().slice(0, 10)
-    if ((countByDay[key] ?? 0) === 0) break
-    streak++
-    check.setDate(check.getDate() - 1)
-  }
-
-  const todayKey = today.toISOString().slice(0, 10)
-  const todayCount = countByDay[todayKey] ?? 0
-  const goalReached = todayCount >= DAILY_GOAL
-
-  const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
-
-  function handleMouseEnter(e: React.MouseEvent, cell: { date: Date; count: number }) {
-    const rect = (e.target as HTMLElement).getBoundingClientRect()
-    const containerRect = containerRef.current?.getBoundingClientRect()
-    if (!containerRect) return
-    const label = cell.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-    const text = cell.count === 0 ? `No applications on ${label}` : `${cell.count} application${cell.count > 1 ? 's' : ''} on ${label}`
-    setTooltip({ text, x: rect.left - containerRect.left + rect.width / 2, y: rect.top - containerRect.top - 8 })
-  }
-
-  return (
-    <div ref={containerRef} className="bg-white rounded-2xl border border-gray-200 shadow-sm px-5 py-4 relative">
-
-      {/* Top row: streak + message + today goal */}
-      <div className={`flex items-center justify-between flex-wrap gap-2 ${open ? 'mb-4' : 'sm:mb-4'}`}>
-        <div className="flex items-center gap-2">
-          {streak > 0 && (
-            <span className="text-xs font-bold text-orange-500 bg-orange-50 px-2.5 py-1 rounded-full">
-              🔥 {streak} day streak
-            </span>
-          )}
-          <span className="text-xs text-gray-400 italic">{motivationMessage(todayCount, streak)}</span>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <span className="text-xs font-semibold text-gray-500">
-            Today: <span className={goalReached ? 'text-emerald-500' : 'text-gray-800'}>{todayCount}</span>
-          </span>
-          <button onClick={() => setOpen(o => !o)} className="sm:hidden text-xs text-gray-400 hover:text-gray-700">
-            {open ? 'Hide activity ▴' : 'Show activity ▾'}
-          </button>
-        </div>
-      </div>
-
-      <div className={open ? '' : 'hidden sm:block'}>
-      {/* Month labels */}
-      <div className="flex gap-1 mb-1 ml-8">
-        {Array.from({ length: WEEKS }).map((_, wi) => {
-          const weekStart = cells[wi * 7]?.date
-          const showMonth = wi === 0 || weekStart?.getDate() <= 7
-          return (
-            <div key={wi} className="w-5 text-center">
-              {showMonth && <span className="text-[9px] text-gray-300">{weekStart?.toLocaleDateString('en-US', { month: 'short' })}</span>}
-            </div>
-          )
-        })}
-      </div>
-
-      <div className="flex gap-1">
-        {/* Day labels */}
-        <div className="flex flex-col gap-1 mr-1">
-          {DAYS.map((d, i) => (
-            <div key={d} className="h-5 flex items-center">
-              {i % 2 === 1
-                ? <span className="text-[9px] text-gray-300 w-7 text-right">{d}</span>
-                : <span className="w-7" />}
-            </div>
-          ))}
-        </div>
-
-        {/* Emoji grid */}
-        <div className="flex gap-1 overflow-x-auto">
-          {Array.from({ length: WEEKS }).map((_, wi) => (
-            <div key={wi} className="flex flex-col gap-1">
-              {Array.from({ length: 7 }).map((_, di) => {
-                const cell = cells[wi * 7 + di]
-                if (!cell) return <div key={di} className="w-5 h-5" />
-                const isToday = cell.date.getTime() === today.getTime()
-                const emoji = cellEmoji(cell.count)
-                return (
-                  <div
-                    key={di}
-                    className={`w-5 h-5 rounded flex items-center justify-center cursor-default transition-transform hover:scale-125 ${
-                      emoji ? 'bg-transparent' : isToday ? 'bg-gray-100 ring-1 ring-gray-300' : 'bg-gray-100'
-                    }`}
-                    onMouseEnter={e => handleMouseEnter(e, cell)}
-                    onMouseLeave={() => setTooltip(null)}
-                  >
-                    {emoji
-                      ? <span className="text-base leading-none select-none">{emoji}</span>
-                      : null
-                    }
-                  </div>
-                )
-              })}
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Legend */}
-      <div className="flex gap-3 mt-3 justify-end">
-        {(['🌱 1', '🌿 2', '🌳 3', '🔥 4+'] as const).map(l => (
-          <span key={l} className="text-[10px] text-gray-300">{l}</span>
-        ))}
-      </div>
-      </div>
-
-      {/* Tooltip */}
-      {tooltip && (
-        <div
-          className="absolute z-10 pointer-events-none bg-gray-900 text-white text-xs px-2 py-1 rounded-lg whitespace-nowrap -translate-x-1/2 -translate-y-full"
-          style={{ left: tooltip.x, top: tooltip.y }}
-        >
-          {tooltip.text}
-        </div>
-      )}
-    </div>
-  )
-}
-
 export default function DashboardPage() {
   const [hasResume, setHasResume] = useState<boolean | null>(null)
   const [applications, setApplications] = useState<Application[]>([])
   const [loading, setLoading] = useState(true)
+  const [weeklyGoal, setWeeklyGoal] = useState(DEFAULT_WEEKLY_GOAL)
   const [filter, setFilter] = useState<FilterTab>('all')
   // Saved postings (not applied yet) live in their own tab, apart from tracked applications
   const [view, setView] = useState<'applications' | 'saved'>('applications')
@@ -262,16 +91,19 @@ export default function DashboardPage() {
   const [showNewPanel, setShowNewPanel] = useState(false)
   const [undoItem, setUndoItem] = useState<{ app: Application; timer: ReturnType<typeof setTimeout> } | null>(null)
   const navigate = useNavigate()
-  const { signOut } = useAuth()
+  const { user, signOut } = useAuth()
 
   useEffect(() => {
     async function load() {
-      const [{ data: resumes }, { data: apps }] = await Promise.all([
+      // The goal loads with the list so the garden never judges this week against the wrong goal
+      const [{ data: resumes }, { data: apps }, { data: settings }] = await Promise.all([
         supabase.from('resumes').select('id').limit(1),
         supabase.from('applications')
           .select('*')
           .order('created_at', { ascending: false }),
+        supabase.from('user_settings').select('weekly_goal').maybeSingle(),
       ])
+      if (settings?.weekly_goal) setWeeklyGoal(settings.weekly_goal)
       const hasAnyResume = (resumes?.length ?? 0) > 0
       setHasResume(hasAnyResume)
       setApplications((apps as Application[]) ?? [])
@@ -290,8 +122,16 @@ export default function DashboardPage() {
     navigate(`/applications/${app.id}`)
   }
 
+  async function handleGoalChange(goal: number) {
+    const prev = weeklyGoal
+    setWeeklyGoal(goal)
+    if (!user) return
+    const { error } = await supabase.from('user_settings').upsert({ user_id: user.id, weekly_goal: goal, updated_at: new Date().toISOString() })
+    if (error) { setWeeklyGoal(prev); alert('Could not save your goal: ' + error.message) }
+  }
+
   // Applying to a saved posting: it joins the tracked list dated today, so the
-  // heatmap, streak, and 30-day follow-up count from the day you actually applied
+  // weekly garden and the 30-day follow-up count from the day you actually applied
   async function handleMarkApplied(e: React.MouseEvent, id: string) {
     e.stopPropagation()
     const created_at = new Date().toISOString()
@@ -464,10 +304,10 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Activity heatmap + stats: side by side on wide screens, stacked on phones */}
-        {view === 'applications' && tracked.length > 0 && (
+        {/* Weekly garden + stats: side by side on wide screens, stacked on phones */}
+        {view === 'applications' && !loading && (
         <div className="lg:grid lg:grid-cols-[auto_1fr] lg:gap-4 mb-6 space-y-3 lg:space-y-0">
-          <ActivityHeatmap applications={tracked} />
+          <WeeklyGarden applications={tracked} goal={weeklyGoal} onGoalChange={handleGoalChange} />
           <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-2 lg:auto-rows-fr gap-3">
             {[
               { label: 'Total',        value: counts.total,        color: 'text-gray-800' },
