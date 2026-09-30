@@ -77,6 +77,7 @@ export default function WeeklyGarden({ applications, goal, onGoalChange }: {
           </span>
 
           <div className="flex-1 min-w-0">
+            <div className="flex items-baseline justify-between gap-2">
             <p className="text-sm text-gray-500 relative">
               <span className={`text-2xl font-bold mr-1 ${done ? 'text-emerald-600' : 'text-gray-900'}`}>{count}</span>
               of{' '}
@@ -108,9 +109,14 @@ export default function WeeklyGarden({ applications, goal, onGoalChange }: {
                 </>
               )}
             </p>
+            {streak > 0 && (
+              <span className="text-xs text-orange-500 font-semibold whitespace-nowrap" title={`Reached your goal ${streak} week${streak > 1 ? 's' : ''} in a row`}>
+                🔥 {streak}<span className="sm:hidden">w</span><span className="hidden sm:inline">-week streak</span>
+              </span>
+            )}
+            </div>
             <p className={`text-xs mt-0.5 ${grew ? 'text-emerald-600 font-semibold' : 'text-gray-400'}`}>
               {grew && '+1 · '}{progressMessage(count, goal)}
-              {streak > 0 && <> · <span className="text-orange-500 font-semibold whitespace-nowrap">🔥 {streak}-week streak</span></>}
             </p>
 
             {/* My garden: one plant per week, oldest first; hover for the week */}
