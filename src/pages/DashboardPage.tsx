@@ -304,20 +304,20 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Weekly garden + stats: side by side on wide screens, stacked on phones */}
+        {/* One card: this week's goal and garden, then the totals */}
         {view === 'applications' && !loading && (
-        <div className="lg:grid lg:grid-cols-[auto_1fr] lg:gap-4 mb-6 space-y-3 lg:space-y-0">
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm mb-6 flex flex-col lg:flex-row">
           <WeeklyGarden applications={tracked} goal={weeklyGoal} onGoalChange={handleGoalChange} />
-          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-2 lg:auto-rows-fr gap-3">
+          <div className="grid grid-cols-4 border-t lg:border-t-0 lg:border-l border-gray-100 lg:w-96 shrink-0">
             {[
-              { label: 'Total',        value: counts.total,        color: 'text-gray-800' },
+              { label: 'Total',        value: counts.total,        color: 'text-gray-900' },
               { label: 'Interviewing', value: counts.interviewing, color: 'text-amber-600' },
               { label: 'Offers',       value: counts.offer,        color: 'text-emerald-600' },
               { label: 'Rejected',     value: counts.rejected,     color: 'text-red-500' },
             ].map(stat => (
-              <div key={stat.label} className="bg-white rounded-xl border border-gray-200 px-4 py-3 shadow-sm lg:flex lg:flex-col lg:justify-center lg:px-6">
-                <p className={`text-2xl lg:text-3xl font-bold ${stat.color}`}>{stat.value}</p>
-                <p className="text-xs text-gray-400 mt-0.5 font-medium">{stat.label}</p>
+              <div key={stat.label} className="px-2 py-3 lg:py-4 text-center flex flex-col justify-center">
+                <p className={`text-xl lg:text-2xl font-bold ${stat.color}`}>{stat.value}</p>
+                <p className="text-[11px] text-gray-400 font-medium truncate">{stat.label}</p>
               </div>
             ))}
           </div>
