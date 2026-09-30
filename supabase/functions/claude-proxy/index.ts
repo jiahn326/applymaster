@@ -150,7 +150,10 @@ Return JSON only:
 }
 
 async function analyzeJobFit(client: Claude, resumeRawText: string, jobDescription: string, currentLocation?: string) {
+  const today = new Date().toISOString().slice(0, 10)
   const text = await callClaude(client, `You are a career coach. Analyze how well this resume matches the job description.
+
+TODAY: ${today}
 
 RESUME:
 ${resumeRawText}

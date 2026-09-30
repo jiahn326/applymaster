@@ -63,6 +63,8 @@ describe('prompt rules', () => {
     expect(FIT_RULES).toContain("current non-engineering job is not a gap")
     expect(FIT_RULES).toContain('plus internships')
     expect(FIT_RULES).toContain('never a dealbreaker')
+    expect(FIT_RULES).toContain('count calendar months inclusively')
+    expect(FIT_RULES).toContain('belong in the Location category')
   })
 
   it('no longer asks the model for the overall score or verdict', () => {

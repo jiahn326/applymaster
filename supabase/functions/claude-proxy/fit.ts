@@ -15,6 +15,7 @@ EVERY GAP MUST COME FROM THE JOB DESCRIPTION:
 
 EXPERIENCE LEVEL:
 - Years of experience = paid software or engineering roles plus internships (count internships in full, and write "incl. internship" in the note when they are part of the total). Personal and side projects do not add years.
+- Compute years the same way every time: for each counted role, count calendar months inclusively (Feb 2023 – Dec 2023 = 11 months; a role ending "Present" runs through TODAY), add the months, divide by 12, and round to one decimal. Use that one number everywhere in the analysis.
 - Projects do count as evidence for specific experience the JD asks for (e.g. "experience integrating LLM APIs") and as recent or current engineering work.
 - The candidate's current non-engineering job is not a gap unless the JD explicitly requires current or recent employment in the role.
 - Score it with this rubric:
@@ -23,6 +24,9 @@ EXPERIENCE LEVEL:
   - Short by 1-3 years: 40-59
   - Short by more than 3 years, or the JD requires a senior, lead, staff, or principal level: 0-39
   - If the only shortfall is a preferred (not required) item, score at least 60.
+
+WORK AUTHORIZATION AND LOCATION:
+- Citizenship, work authorization, visa sponsorship, security clearance, relocation, and on-site or hybrid requirements belong in the Location category — never in Skills Match or Experience Level.
 
 DEALBREAKER:
 - Set "dealbreaker" only when the JD states a hard requirement that the resume or location clearly shows the candidate cannot meet (e.g. an active security clearance the resume doesn't have, a required license). Quote the requirement briefly.
