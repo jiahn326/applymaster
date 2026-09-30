@@ -153,7 +153,7 @@ export default function UploadResumePage() {
   useEffect(() => {
     Promise.all([
       supabase.from('resumes').select('id, created_at, content').order('created_at', { ascending: false }),
-      supabase.from('user_settings').select('active_resume_id').single(),
+      supabase.from('user_settings').select('active_resume_id').maybeSingle(),
     ]).then(([{ data: resumeData }, { data: settings }]) => {
       if (resumeData) {
         setVersions(resumeData as ResumeVersion[])

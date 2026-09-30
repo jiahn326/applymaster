@@ -33,7 +33,7 @@ export default function SettingsPage() {
         .from('user_settings')
         .select('cover_letter_template')
         .eq('user_id', user.id)
-        .single()
+        .maybeSingle()
       setTemplate(data?.cover_letter_template ?? DEFAULT_TEMPLATE)
       setLoading(false)
     }

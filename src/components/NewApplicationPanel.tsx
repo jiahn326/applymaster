@@ -93,7 +93,7 @@ export default function NewApplicationPanel({ onSaved, onClose }: Props) {
                 .then(r => r.ok ? r.text() : trimmed)
                 .catch(() => trimmed)
             : Promise.resolve(trimmed),
-          supabase.from('user_settings').select('active_resume_id').single(),
+          supabase.from('user_settings').select('active_resume_id').maybeSingle(),
           supabase.from('resumes').select('id, content').order('created_at', { ascending: false }),
         ]),
         timeout,

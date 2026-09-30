@@ -109,7 +109,7 @@ export default function ApplicationDetailPage() {
     async function load() {
       const [{ data: appData }, { data: settingsData }, { data: resumesData }] = await Promise.all([
         supabase.from('applications').select('*').eq('id', id).single(),
-        supabase.from('user_settings').select('active_resume_id').single(),
+        supabase.from('user_settings').select('active_resume_id').maybeSingle(),
         supabase.from('resumes').select('id, content').order('created_at', { ascending: false }),
       ])
       const a = appData as Application
