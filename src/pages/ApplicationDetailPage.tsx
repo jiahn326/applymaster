@@ -501,70 +501,6 @@ export default function ApplicationDetailPage() {
           )
         })()}
 
-        {/* Job posting link + Notes */}
-        <div className="bg-white rounded-2xl border border-gray-200 px-5 py-4 shadow-sm">
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Job posting URL</p>
-            {!editingUrl && (
-              <button onClick={() => { setUrlValue(app.job_url ?? ''); setUrlError(null); setEditingUrl(true) }}
-                className="text-xs text-gray-400 hover:text-gray-600 transition-colors">{app.job_url ? 'Edit' : 'Add'}</button>
-            )}
-          </div>
-          {editingUrl ? (
-            <div className="space-y-2">
-              <input autoFocus value={urlValue} onChange={e => { setUrlValue(e.target.value); setUrlError(null) }}
-                onKeyDown={e => { if (e.key === 'Enter') saveUrl(); if (e.key === 'Escape') { setEditingUrl(false); setUrlError(null) } }}
-                placeholder="https://… job posting URL"
-                className={`w-full text-sm border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gray-900 ${urlError ? 'border-red-300' : 'border-gray-200'}`} />
-              {urlError && <p className="text-xs text-red-500">{urlError}</p>}
-              <div className="flex gap-2">
-                <button onClick={saveUrl} className="text-xs font-semibold text-white bg-gray-900 hover:bg-gray-700 px-3 py-1.5 rounded-lg transition-colors">Save</button>
-                <button onClick={() => { setEditingUrl(false); setUrlError(null) }} className="text-xs text-gray-500 hover:text-gray-700 px-2 py-1.5 rounded-lg">Cancel</button>
-              </div>
-            </div>
-          ) : app.job_url ? (
-            <a href={app.job_url} target="_blank" rel="noreferrer" className="block text-sm text-blue-600 hover:underline truncate">{app.job_url} ↗</a>
-          ) : (
-            <p className="text-sm text-gray-400 italic">No link</p>
-          )}
-
-          <div className="border-t border-gray-100 my-4" />
-
-          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Applied through</p>
-          <div className="flex flex-wrap gap-2">
-            {APPLIED_THROUGH.map(opt => (
-              <button key={opt.value} onClick={() => saveAppliedThrough(opt.value)}
-                className={`text-xs font-medium px-3 py-1.5 rounded-full border transition-colors ${
-                  app.applied_through === opt.value ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'
-                }`}>
-                {opt.label}
-              </button>
-            ))}
-          </div>
-
-          <div className="border-t border-gray-100 my-4" />
-
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Notes</p>
-            {!editingNotes && (
-              <button onClick={() => { setEditingNotes(true); setTimeout(() => notesRef.current?.focus(), 50) }}
-                className="text-xs text-gray-400 hover:text-gray-600 transition-colors">Edit</button>
-            )}
-          </div>
-          {editingNotes ? (
-            <div className="space-y-2">
-              <textarea ref={notesRef} value={notesValue} onChange={e => setNotesValue(e.target.value)}
-                className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gray-900 resize-none h-20" />
-              <div className="flex gap-2">
-                <button onClick={saveNotes} className="text-xs font-semibold text-white bg-gray-900 hover:bg-gray-700 px-3 py-1.5 rounded-lg transition-colors">Save</button>
-                <button onClick={() => { setEditingNotes(false); setNotesValue(app.notes ?? '') }} className="text-xs text-gray-500 hover:text-gray-700 px-2 py-1.5 rounded-lg">Cancel</button>
-              </div>
-            </div>
-          ) : (
-            <p className="text-sm text-gray-700">{app.notes || <span className="text-gray-400 italic">No notes</span>}</p>
-          )}
-        </div>
-
         {/* JD was edited: offer to re-run what was built from the old one */}
         {jdChanged && (
           <div className="bg-amber-50 border border-amber-200 rounded-2xl px-5 py-4 space-y-3">
@@ -774,6 +710,70 @@ export default function ApplicationDetailPage() {
               />
             )}
           </div>
+        </div>
+
+        {/* Details: job posting link, source, notes — below the main work */}
+        <div className="bg-white rounded-2xl border border-gray-200 px-5 py-4 shadow-sm">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Job posting URL</p>
+            {!editingUrl && (
+              <button onClick={() => { setUrlValue(app.job_url ?? ''); setUrlError(null); setEditingUrl(true) }}
+                className="text-xs text-gray-400 hover:text-gray-600 transition-colors">{app.job_url ? 'Edit' : 'Add'}</button>
+            )}
+          </div>
+          {editingUrl ? (
+            <div className="space-y-2">
+              <input autoFocus value={urlValue} onChange={e => { setUrlValue(e.target.value); setUrlError(null) }}
+                onKeyDown={e => { if (e.key === 'Enter') saveUrl(); if (e.key === 'Escape') { setEditingUrl(false); setUrlError(null) } }}
+                placeholder="https://… job posting URL"
+                className={`w-full text-sm border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gray-900 ${urlError ? 'border-red-300' : 'border-gray-200'}`} />
+              {urlError && <p className="text-xs text-red-500">{urlError}</p>}
+              <div className="flex gap-2">
+                <button onClick={saveUrl} className="text-xs font-semibold text-white bg-gray-900 hover:bg-gray-700 px-3 py-1.5 rounded-lg transition-colors">Save</button>
+                <button onClick={() => { setEditingUrl(false); setUrlError(null) }} className="text-xs text-gray-500 hover:text-gray-700 px-2 py-1.5 rounded-lg">Cancel</button>
+              </div>
+            </div>
+          ) : app.job_url ? (
+            <a href={app.job_url} target="_blank" rel="noreferrer" className="block text-sm text-blue-600 hover:underline truncate">{app.job_url} ↗</a>
+          ) : (
+            <p className="text-sm text-gray-400 italic">No link</p>
+          )}
+
+          <div className="border-t border-gray-100 my-4" />
+
+          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Applied through</p>
+          <div className="flex flex-wrap gap-2">
+            {APPLIED_THROUGH.map(opt => (
+              <button key={opt.value} onClick={() => saveAppliedThrough(opt.value)}
+                className={`text-xs font-medium px-3 py-1.5 rounded-full border transition-colors ${
+                  app.applied_through === opt.value ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'
+                }`}>
+                {opt.label}
+              </button>
+            ))}
+          </div>
+
+          <div className="border-t border-gray-100 my-4" />
+
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Notes</p>
+            {!editingNotes && (
+              <button onClick={() => { setEditingNotes(true); setTimeout(() => notesRef.current?.focus(), 50) }}
+                className="text-xs text-gray-400 hover:text-gray-600 transition-colors">Edit</button>
+            )}
+          </div>
+          {editingNotes ? (
+            <div className="space-y-2">
+              <textarea ref={notesRef} value={notesValue} onChange={e => setNotesValue(e.target.value)}
+                className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gray-900 resize-none h-20" />
+              <div className="flex gap-2">
+                <button onClick={saveNotes} className="text-xs font-semibold text-white bg-gray-900 hover:bg-gray-700 px-3 py-1.5 rounded-lg transition-colors">Save</button>
+                <button onClick={() => { setEditingNotes(false); setNotesValue(app.notes ?? '') }} className="text-xs text-gray-500 hover:text-gray-700 px-2 py-1.5 rounded-lg">Cancel</button>
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm text-gray-700">{app.notes || <span className="text-gray-400 italic">No notes</span>}</p>
+          )}
         </div>
 
         {/* Job Description — collapsible, editable */}

@@ -101,7 +101,7 @@ function Bullet({ text, counterpart, side, placement, suggestion, onToggle }: {
   )
 }
 
-function ResumePreview({ structure, compareTo, side, rawText, placements, suggestions, onToggle, copyable = false, copiedKey, onCopy, scrollRef, onScroll }: {
+function ResumePreview({ structure, compareTo, side, rawText, placements, suggestions, onToggle, changedOnly = false, copyable = false, copiedKey, onCopy, scrollRef, onScroll }: {
   structure: ResumeStructure
   compareTo: ResumeStructure
   side: 'original' | 'tailored'
@@ -109,6 +109,8 @@ function ResumePreview({ structure, compareTo, side, rawText, placements, sugges
   placements?: PlacementMap
   suggestions?: string[]
   onToggle?: (diffIndex: number) => void
+  // Show only bullets that changed (or were undone), with their company/project line
+  changedOnly?: boolean
   copyable?: boolean
   copiedKey?: string | null
   onCopy?: (text: string, key: string) => void
@@ -120,8 +122,17 @@ function ResumePreview({ structure, compareTo, side, rawText, placements, sugges
     const placement = placements?.get(placementKey(kind, entry, bullet))
     return { placement, suggestion: placement ? suggestions?.[placement.diffIndex] : undefined, onToggle }
   }
+  // Both sides must agree on which bullets count as changed, so this checks the
+  // placement map (passed to both) and the text on both sides
+  const isChanged = (kind: DiffPlacement['kind'], entry: number, j: number, text: string) => {
+    const other = kind === 'experience' ? compareTo.experience[entry]?.bullets[j] : compareTo.projects[entry]?.bullets[j]
+    return placements?.has(placementKey(kind, entry, j)) || (other !== undefined && other !== text)
+  }
+  const shownBullets = (kind: DiffPlacement['kind'], entry: number, bullets: string[]) =>
+    bullets.map((b, j) => ({ b, j })).filter(({ b, j }) => !changedOnly || isChanged(kind, entry, j, b))
   return (
     <div ref={scrollRef} onScroll={onScroll} className="text-xs leading-relaxed p-4 bg-white border border-gray-200 rounded-xl overflow-y-auto max-h-[600px]">
+      {!changedOnly && (<>
       {/* Header */}
       <div className="text-center mb-4">
         <div className="font-bold text-sm">{structure.header.name}</div>
@@ -152,6 +163,7 @@ function ResumePreview({ structure, compareTo, side, rawText, placements, sugges
           )}
         </div>
       </ResumeSection>
+      </>)}
 
       {/* Experience — grouped by company */}
       <ResumeSection title={sectionTitle(structure, 'experience', rawText)}>
@@ -165,17 +177,20 @@ function ResumePreview({ structure, compareTo, side, rawText, placements, sugges
               groups.push({ company: exp.company, location: exp.location, roles: [{ title: exp.title, dates: exp.dates, bullets: exp.bullets, expIdx: i }] })
             }
           })
-          return groups.map((group, gi) => (
+          return groups.map((group, gi) => {
+            const roles = group.roles.filter(role => shownBullets('experience', role.expIdx, role.bullets).length > 0)
+            if (changedOnly && !roles.length) return null
+            return (
             <div key={gi} className="mb-3">
               <div className="flex justify-between"><span className="font-bold">{group.company}</span><span className="font-bold">{group.location}</span></div>
-              {group.roles.map((role, ri) => (
+              {(changedOnly ? roles : group.roles).map((role, ri) => (
                 <div key={ri} className="flex justify-between text-gray-600">
                   <span className="italic">{role.title}</span><span className="italic">{role.dates}</span>
                 </div>
               ))}
-              {group.roles.map((role, ri) => (
+              {(changedOnly ? roles : group.roles).map((role, ri) => (
                 <div key={ri} className="group relative">
-                  {role.bullets.map((b, j) => (
+                  {shownBullets('experience', role.expIdx, role.bullets).map(({ b, j }) => (
                     <Bullet key={j} text={b} counterpart={compareTo.experience[role.expIdx]?.bullets[j]} side={side} {...bulletProps('experience', role.expIdx, j)} />
                   ))}
                   {copyable && onCopy && (
@@ -186,13 +201,16 @@ function ResumePreview({ structure, compareTo, side, rawText, placements, sugges
                 </div>
               ))}
             </div>
-          ))
+            )
+          })
         })()}
       </ResumeSection>
 
       {/* Projects */}
       <ResumeSection title={sectionTitle(structure, 'projects', rawText)}>
         {structure.projects.map((proj, i) => {
+          const bullets = shownBullets('projects', i, proj.bullets)
+          if (changedOnly && !bullets.length) return null
           return (
             <div key={i} className="mb-3">
               <div className="flex justify-between">
@@ -200,7 +218,7 @@ function ResumePreview({ structure, compareTo, side, rawText, placements, sugges
                 {proj.dates && <span className="text-gray-600 italic">{proj.dates}</span>}
               </div>
               <div className="group relative">
-                {proj.bullets.map((b, j) => (
+                {bullets.map(({ b, j }) => (
                   <Bullet key={j} text={b} counterpart={compareTo.projects[i]?.bullets[j]} side={side} {...bulletProps('projects', i, j)} />
                 ))}
                 {copyable && onCopy && (
@@ -221,6 +239,10 @@ function ResumePreview({ structure, compareTo, side, rawText, placements, sugges
 
 export default function ResumeChangesView({ tailored, structure, rawText, onToggleDiff }: Props) {
   const [copiedKey, setCopiedKey] = useState<string | null>(null)
+  // Default to the changed bullets so the review starts with what matters
+  const [changedOnly, setChangedOnly] = useState(true)
+  // Phones show one side at a time; side-by-side is unreadable at that width
+  const [mobileSide, setMobileSide] = useState<'original' | 'tailored'>('tailored')
   const leftRef = useRef<HTMLDivElement>(null)
   const rightRef = useRef<HTMLDivElement>(null)
   const syncing = useRef(false)
@@ -244,19 +266,45 @@ export default function ResumeChangesView({ tailored, structure, rawText, onTogg
   const tailoredStructure = resolution.structure
   const placements: PlacementMap = new Map(resolution.placements.map(p => [placementKey(p.kind, p.entry, p.bullet), p]))
   const suggestions = tailored.diffs.map(d => d.tailored)
+  const changeCount = resolution.applied.length
+  const undoneCount = resolution.undone.length
+  const hasChanges = changeCount + undoneCount > 0
+  const onlyChanged = changedOnly && hasChanges
 
   return (
     <div className="space-y-3">
       <div className="bg-gray-50 rounded-xl px-4 py-3 text-xs text-gray-500 leading-relaxed">
         Only the words that changed are highlighted: <span className="bg-red-50 text-red-700 line-through decoration-red-300 rounded-sm px-0.5">removed</span> on the left, <span className="bg-emerald-100 text-emerald-900 font-medium rounded-sm px-0.5">added</span> on the right. Don't want a change? Use <span className="font-semibold">Undo</span> on that bullet — the PDF follows your choices.
       </div>
-      {/* Split preview */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <div>
-          <p className="text-xs font-semibold text-gray-400 text-center mb-2">Original</p>
-          <ResumePreview structure={structure} compareTo={tailoredStructure} side="original" rawText={rawText} scrollRef={leftRef} onScroll={() => syncScroll('left')} />
+      {/* Summary + view options */}
+      <div className="flex flex-wrap items-center gap-3">
+        <p className="text-sm font-semibold text-gray-800">
+          {changeCount} change{changeCount === 1 ? '' : 's'}
+          {undoneCount > 0 && <span className="font-normal text-gray-400"> · {undoneCount} undone</span>}
+        </p>
+        {hasChanges && (
+          <label className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer select-none">
+            <input type="checkbox" checked={changedOnly} onChange={e => setChangedOnly(e.target.checked)} className="accent-gray-900" />
+            Changed bullets only
+          </label>
+        )}
+        <div className="sm:hidden ml-auto flex gap-1 bg-gray-100 p-0.5 rounded-lg">
+          {(['original', 'tailored'] as const).map(side => (
+            <button key={side} onClick={() => setMobileSide(side)}
+              className={`text-xs font-semibold px-3 py-1 rounded-md capitalize ${mobileSide === side ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'}`}>
+              {side}
+            </button>
+          ))}
         </div>
-        <div>
+      </div>
+
+      {/* Split preview (one side at a time on phones) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className={`${mobileSide === 'original' ? '' : 'hidden'} sm:block`}>
+          <p className="text-xs font-semibold text-gray-400 text-center mb-2">Original</p>
+          <ResumePreview structure={structure} compareTo={tailoredStructure} side="original" rawText={rawText} placements={placements} changedOnly={onlyChanged} scrollRef={leftRef} onScroll={() => syncScroll('left')} />
+        </div>
+        <div className={`${mobileSide === 'tailored' ? '' : 'hidden'} sm:block`}>
           <p className="text-xs font-semibold text-emerald-600 text-center mb-2">Tailored</p>
           <ResumePreview
             structure={tailoredStructure}
@@ -266,6 +314,7 @@ export default function ResumeChangesView({ tailored, structure, rawText, onTogg
             placements={placements}
             suggestions={suggestions}
             onToggle={onToggleDiff}
+            changedOnly={onlyChanged}
             copyable
             copiedKey={copiedKey}
             onCopy={copyWithFeedback}
