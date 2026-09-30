@@ -12,7 +12,7 @@ import { generateCoverLetter } from '../lib/generateCoverLetter'
 import ResumeChangesView from '../components/ResumeChangesView'
 import FitReasons from '../components/FitReasons'
 import QuestionsTab from '../components/QuestionsTab'
-import type { ApplicationAnswer } from '../lib/answers'
+import { placeholderCount, splitPlaceholders, type ApplicationAnswer } from '../lib/answers'
 import { useAbortable } from '../hooks/useAbortable'
 import { useSlowFlag } from '../hooks/useSlowFlag'
 import { errorMessage, type ResumeRow, type UserSettingsRow } from '../lib/records'
@@ -659,6 +659,8 @@ export default function ApplicationDetailPage() {
                         <span className="text-sm text-gray-600">I submitted this cover letter</span>
                       </label>
                       <button onClick={() => {
+                        const n = placeholderCount(coverLetter)
+                        if (n && !confirm(`This cover letter still has ${n} placeholder${n === 1 ? '' : 's'} to fill in with a real example. Copy anyway?`)) return
                         const lines = coverLetter.split('\n')
                         const dateIdx = lines.findIndex(l => /^(January|February|March|April|May|June|July|August|September|October|November|December)/i.test(l.trim()))
                         const sincerelyIdx = lines.findIndex(l => /^sincerely/i.test(l.trim()))
@@ -675,8 +677,15 @@ export default function ApplicationDetailPage() {
                       </button>
                     </div>
                     <pre className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed font-sans bg-gray-50 rounded-xl p-4 border border-gray-100">
-                      {coverLetter}
+                      {splitPlaceholders(coverLetter).map((part, i) => part.placeholder
+                        ? <mark key={i} className="bg-amber-100 text-amber-900 rounded px-0.5 font-medium">{part.text}</mark>
+                        : <span key={i}>{part.text}</span>)}
                     </pre>
+                    {placeholderCount(coverLetter) > 0 && (
+                      <p className="text-xs text-amber-700">
+                        Your resume doesn't include a story for the highlighted part, so it was left as a placeholder instead of made up. Replace it with what really happened before sending.
+                      </p>
+                    )}
                     <div className="flex gap-2">
                       <button onClick={handleGenerateCoverLetter} disabled={generatingCL || !app.job_description}
                         className="flex-1 bg-gray-50 border border-gray-200 text-gray-500 font-medium py-2.5 rounded-xl hover:bg-gray-100 transition-all text-sm disabled:opacity-40">

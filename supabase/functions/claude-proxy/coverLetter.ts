@@ -67,7 +67,8 @@ export function middleWordRange(parts: TemplateParts | null, target = LETTER_TAR
 }
 
 export const LETTER_RULES = `FACTS — the resume is the only source:
-- Only mention experience, skills, projects, and results that appear in the resume. Never invent metrics, tools, responsibilities, or stories.
+- Only mention experience, skills, projects, and results that appear in the resume or in the candidate's own draft. Never invent metrics, tools, responsibilities, or stories.
+- Never invent a specific event or anecdote ("One time...", "When a supplier..."). If a sentence needs a concrete story that neither the resume nor the draft provides, put a placeholder in square brackets there instead, starting with "Add a real example:" and saying what to include — for example [Add a real example: a time you fixed a problem for a user, what you did, and the result].
 - A tool, language, or technology the job description mentions but the resume doesn't may only be described as part of the role ("the role uses Next.js"), never as something the candidate has used, knows, or has experience with.
 - Never claim to have used the company's product, been a customer, or admired the company for years unless the resume says so.
 - Reasons for wanting this company or role must come from the job description (the team's work, the tech stack, the problem) connected to the candidate's real experience.

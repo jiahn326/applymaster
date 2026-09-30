@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { fillFixedPlaceholders, splitTemplate, assembleLetter, middleWordRange, unsupportedTerms, jdOnlyTerms, LETTER_TARGET_CHARS } from '../../supabase/functions/claude-proxy/coverLetter.ts'
+import { fillFixedPlaceholders, splitTemplate, assembleLetter, middleWordRange, unsupportedTerms, jdOnlyTerms, LETTER_RULES, LETTER_TARGET_CHARS } from '../../supabase/functions/claude-proxy/coverLetter.ts'
 import { resumeToText } from './resumeUtils'
 import type { ResumeStructure } from './parseResumeStructure'
 
@@ -132,5 +132,12 @@ describe('resumeToText', () => {
     expect(t).toContain('WORK EXPERIENCE\nEngineer — Acme, Remote (2023)\n- Built CI/CD pipelines')
     expect(t).toContain('ApplyMaster (React) — 2026 - Present\n- Migrating parsing')
     expect(t).toContain('Tools: Supabase, Figma')
+  })
+})
+
+describe('LETTER_RULES', () => {
+  it('asks for a placeholder instead of an invented story', () => {
+    expect(LETTER_RULES).toContain('Never invent a specific event or anecdote')
+    expect(LETTER_RULES).toContain('Add a real example:')
   })
 })
