@@ -6,7 +6,7 @@ import { useAuth } from '../hooks/useAuth'
 import { APPLIED_THROUGH, appliedThroughShort } from '../lib/appliedThrough'
 import SourceIcon from '../components/SourceIcon'
 import WeeklyGarden from '../components/WeeklyGarden'
-import { DEFAULT_WEEKLY_GOAL } from '../lib/garden'
+import { DEFAULT_GOAL, type Goal } from '../lib/garden'
 import { STATUS_CONFIG, TRACKED_STATUSES, FOLLOW_UP_DAYS, needsFollowUp, daysSince, type AppStatus } from '../lib/status'
 
 type Status = AppStatus
@@ -75,7 +75,7 @@ export default function DashboardPage() {
   const [hasResume, setHasResume] = useState<boolean | null>(null)
   const [applications, setApplications] = useState<Application[]>([])
   const [loading, setLoading] = useState(true)
-  const [weeklyGoal, setWeeklyGoal] = useState(DEFAULT_WEEKLY_GOAL)
+  const [goal, setGoal] = useState<Goal>(DEFAULT_GOAL)
   const [filter, setFilter] = useState<FilterTab>('all')
   // Saved postings (not applied yet) live in their own tab, apart from tracked applications
   const [view, setView] = useState<'applications' | 'saved'>('applications')
@@ -101,9 +101,9 @@ export default function DashboardPage() {
         supabase.from('applications')
           .select('*')
           .order('created_at', { ascending: false }),
-        supabase.from('user_settings').select('weekly_goal').maybeSingle(),
+        supabase.from('user_settings').select('daily_goal, goal_days').maybeSingle(),
       ])
-      if (settings?.weekly_goal) setWeeklyGoal(settings.weekly_goal)
+      if (settings?.daily_goal && settings.goal_days) setGoal({ daily: settings.daily_goal, days: settings.goal_days })
       const hasAnyResume = (resumes?.length ?? 0) > 0
       setHasResume(hasAnyResume)
       setApplications((apps as Application[]) ?? [])
@@ -122,12 +122,14 @@ export default function DashboardPage() {
     navigate(`/applications/${app.id}`)
   }
 
-  async function handleGoalChange(goal: number) {
-    const prev = weeklyGoal
-    setWeeklyGoal(goal)
+  async function handleGoalChange(next: Goal) {
+    const prev = goal
+    setGoal(next)
     if (!user) return
-    const { error } = await supabase.from('user_settings').upsert({ user_id: user.id, weekly_goal: goal, updated_at: new Date().toISOString() })
-    if (error) { setWeeklyGoal(prev); alert('Could not save your goal: ' + error.message) }
+    const { error } = await supabase.from('user_settings').upsert({
+      user_id: user.id, daily_goal: next.daily, goal_days: next.days, updated_at: new Date().toISOString(),
+    })
+    if (error) { setGoal(prev); alert('Could not save your goal: ' + error.message) }
   }
 
   // Applying to a saved posting: it joins the tracked list dated today, so the
@@ -307,7 +309,7 @@ export default function DashboardPage() {
         {/* One card: this week's goal and garden, then the totals */}
         {view === 'applications' && !loading && (
         <div className="bg-white rounded-2xl border border-gray-200 shadow-sm mb-6 flex flex-col lg:flex-row">
-          <WeeklyGarden applications={tracked} goal={weeklyGoal} onGoalChange={handleGoalChange} />
+          <WeeklyGarden applications={tracked} goal={goal} onGoalChange={handleGoalChange} />
           <div className="grid grid-cols-4 border-t lg:border-t-0 lg:border-l border-gray-100 lg:w-96 shrink-0">
             {[
               { label: 'Total',        value: counts.total,        color: 'text-gray-900' },

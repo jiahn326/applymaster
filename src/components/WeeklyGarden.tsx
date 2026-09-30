@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import {
-  GOAL_CHOICES, STAGES, STAGE_NAMES, localDayKey, weeklyCounts, stageFor, stageThresholds, stageRange, weekStreak, progressMessage,
+  DAILY_CHOICES, DAY_CHOICES, STAGES, STAGE_NAMES, localDayKey, weeklyCounts, countOnDay, weeklyTarget, stageFor, stageThresholds,
+  stageRange, weekStreak, progressMessage, type Goal,
 } from '../lib/garden'
 
 // Per-viewer memory: how many applications this week the user has already seen
@@ -18,14 +19,17 @@ function weekLabel(start: Date): string {
 
 export default function WeeklyGarden({ applications, goal, onGoalChange }: {
   applications: { created_at: string }[]
-  goal: number
-  onGoalChange: (goal: number) => void
+  goal: Goal
+  onGoalChange: (goal: Goal) => void
 }) {
-  const weeks = weeklyCounts(applications.map(a => a.created_at), new Date())
+  const dates = applications.map(a => a.created_at)
+  const weeks = weeklyCounts(dates, new Date())
+  const today = countOnDay(dates, new Date())
+  const target = weeklyTarget(goal)
   const current = weeks[weeks.length - 1]
   const count = current.count
-  const stage = stageFor(count, goal)
-  const streak = weekStreak(weeks, goal)
+  const stage = stageFor(count, target)
+  const streak = weekStreak(weeks, target)
   const weekKey = localDayKey(current.start)
 
   // Mobile: the garden row starts folded so the list stays on the first screen
@@ -44,15 +48,15 @@ export default function WeeklyGarden({ applications, goal, onGoalChange }: {
       timers.push(setTimeout(() => setGrew(true), 0), setTimeout(() => setGrew(false), 3500))
     }
     const bloomKey = `garden-bloomed:${weekKey}`
-    if (count >= goal && readNumber(bloomKey) === null) {
+    if (count >= target && readNumber(bloomKey) === null) {
       write(bloomKey, '1')
       timers.push(setTimeout(() => setCelebrate(true), 0))
     }
     return () => timers.forEach(clearTimeout)
-  }, [count, goal, weekKey])
+  }, [count, target, weekKey])
 
-  const pct = Math.min(100, Math.round((count / goal) * 100))
-  const done = count >= goal
+  const pct = Math.min(100, Math.round((count / target) * 100))
+  const done = count >= target
 
   // No card chrome: the dashboard puts this and the totals in one card
   return (
@@ -85,9 +89,9 @@ export default function WeeklyGarden({ applications, goal, onGoalChange }: {
               <button
                 onClick={() => setPicking(p => !p)}
                 className="font-semibold text-gray-600 hover:text-gray-900 underline decoration-dotted underline-offset-4"
-                title="Change weekly goal"
+                title="Change your goal"
               >
-                {goal}
+                {target}
               </button>
               {' '}this week
               <button
@@ -105,12 +109,12 @@ export default function WeeklyGarden({ applications, goal, onGoalChange }: {
                     {STAGES.map((e, i) => (
                       <span key={e} className="flex items-center gap-2 text-xs text-gray-600 py-0.5">
                         <span className="text-base w-5 text-center">{e}</span>
-                        <span className="w-10 font-semibold text-gray-800">{stageRange(i, goal)}</span>
+                        <span className="w-10 font-semibold text-gray-800">{stageRange(i, target)}</span>
                         <span>{STAGE_NAMES[i]}</span>
                       </span>
                     ))}
                     <span className="block text-[11px] text-gray-400 mt-2 leading-relaxed">
-                      Counts applications sent Monday to Sunday. Each Monday a new seed starts,
+                      Your goal: {goal.daily} a day × {goal.days} days = {target} a week, counted Monday to Sunday. Each Monday a new seed starts,
                       and last week's plant stays in your garden. 🔥 is how many weeks in a row you reached your goal.
                     </span>
                   </span>
@@ -119,18 +123,33 @@ export default function WeeklyGarden({ applications, goal, onGoalChange }: {
               {picking && (
                 <>
                   <span className="fixed inset-0 z-10" onClick={() => setPicking(false)} />
-                  <span className="absolute left-0 top-full mt-1 z-20 bg-white border border-gray-200 rounded-xl shadow-lg p-2">
-                    <span className="block text-[11px] text-gray-400 px-1 mb-1 whitespace-nowrap">Weekly goal</span>
-                    <span className="flex gap-1">
-                      {GOAL_CHOICES.map(g => (
+                  <span className="absolute -left-16 sm:left-0 top-full mt-2 z-20 w-72 max-w-[calc(100vw-3rem)] bg-white border border-gray-200 rounded-xl shadow-lg p-3 block">
+                    <span className="block text-[11px] text-gray-400 mb-1.5">Applications a day</span>
+                    <span className="flex gap-1 flex-wrap">
+                      {DAILY_CHOICES.map(n => (
                         <button
-                          key={g}
-                          onClick={() => { onGoalChange(g); setPicking(false) }}
-                          className={`px-3 py-1.5 rounded-lg text-sm font-semibold ${g === goal ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                          key={n}
+                          onClick={() => onGoalChange({ ...goal, daily: n })}
+                          className={`px-3 py-1.5 rounded-lg text-sm font-semibold ${n === goal.daily ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
                         >
-                          {g}
+                          {n}
                         </button>
                       ))}
+                    </span>
+                    <span className="block text-[11px] text-gray-400 mt-3 mb-1.5">Days a week</span>
+                    <span className="flex gap-1">
+                      {DAY_CHOICES.map(n => (
+                        <button
+                          key={n}
+                          onClick={() => onGoalChange({ ...goal, days: n })}
+                          className={`px-3 py-1.5 rounded-lg text-sm font-semibold ${n === goal.days ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                        >
+                          {n} days
+                        </button>
+                      ))}
+                    </span>
+                    <span className="block text-xs text-gray-500 mt-3 pt-2 border-t border-gray-100">
+                      {goal.daily} × {goal.days} days = <b className="text-gray-900">{target} a week</b>
                     </span>
                   </span>
                 </>
@@ -143,7 +162,11 @@ export default function WeeklyGarden({ applications, goal, onGoalChange }: {
             )}
             </div>
             <p className={`text-xs mt-0.5 ${grew ? 'text-emerald-600 font-semibold' : 'text-gray-400'}`}>
-              {grew && '+1 · '}{progressMessage(count, goal)}
+              {grew && '+1 · '}{progressMessage(count, target)}
+              {' · '}
+              <span className={`whitespace-nowrap ${today >= goal.daily ? 'text-emerald-600 font-semibold' : 'text-gray-500'}`}>
+                Today <b className={today >= goal.daily ? '' : 'text-gray-800'}>{today}</b> of {goal.daily}
+              </span>
             </p>
 
             {/* My garden: one plant per week, oldest first; hover for the week */}
@@ -159,7 +182,7 @@ export default function WeeklyGarden({ applications, goal, onGoalChange }: {
                     >
                       {w.count === 0 && !isCurrent
                         ? <span className="w-1.5 h-1.5 rounded-full bg-gray-200" />
-                        : <span className="text-base sm:text-lg leading-none select-none">{STAGES[stageFor(w.count, goal)]}</span>}
+                        : <span className="text-base sm:text-lg leading-none select-none">{STAGES[stageFor(w.count, target)]}</span>}
                     </span>
                   )
                 })}
@@ -180,12 +203,12 @@ export default function WeeklyGarden({ applications, goal, onGoalChange }: {
           />
         </div>
         <div className="relative h-7 mt-1">
-          {stageThresholds(goal).map((t, i) => (
+          {stageThresholds(target).map((t, i) => i === 0 ? null : (
             <span
               key={i}
-              title={`${STAGE_NAMES[i]} (${stageRange(i, goal)})`}
-              className={`absolute flex flex-col items-center ${i === 0 ? '' : i === STAGES.length - 1 ? '-translate-x-full' : '-translate-x-1/2'} ${count >= t ? '' : 'opacity-40 grayscale'}`}
-              style={{ left: `${(t / goal) * 100}%` }}
+              title={`${STAGE_NAMES[i]} (${stageRange(i, target)})`}
+              className={`absolute flex flex-col items-center ${i === STAGES.length - 1 ? '-translate-x-full' : '-translate-x-1/2'} ${count >= t ? '' : 'opacity-40 grayscale'}`}
+              style={{ left: `${(t / target) * 100}%` }}
             >
               <span className="text-sm leading-none select-none">{STAGES[i]}</span>
               <span className="text-[9px] text-gray-400 mt-0.5">{t}</span>

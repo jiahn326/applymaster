@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { localDayKey, mondayOf, weeklyCounts, stageFor, stageRange, stageThresholds, weekStreak, progressMessage } from './garden'
+import { localDayKey, mondayOf, weeklyCounts, countOnDay, weeklyTarget, stageFor, stageRange, stageThresholds, weekStreak, progressMessage } from './garden'
 
 // Local-time dates, so the tests hold in any time zone
 const at = (y: number, m: number, d: number, h = 12) => new Date(y, m - 1, d, h)
@@ -23,6 +23,16 @@ describe('weeklyCounts', () => {
     ], now, 4)
     expect(weeks.map(w => w.count)).toEqual([0, 0, 1, 2])
     expect(localDayKey(weeks[0].start)).toBe('2026-09-07')
+  })
+})
+
+describe('countOnDay / weeklyTarget', () => {
+  it('counts applications on a local day', () => {
+    const dates = [iso(2026, 9, 29, 0), iso(2026, 9, 29, 23), iso(2026, 9, 28, 23), iso(2026, 9, 30, 0)]
+    expect(countOnDay(dates, at(2026, 9, 29))).toBe(2)
+  })
+  it('multiplies a day by the days a week', () => {
+    expect(weeklyTarget({ daily: 10, days: 5 })).toBe(50)
   })
 })
 

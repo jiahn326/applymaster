@@ -1,8 +1,18 @@
 // Weekly goal "garden": each Monday–Sunday week is a plant that grows with the
 // number of applications sent that week. All dates are the user's local dates.
 
-export const DEFAULT_WEEKLY_GOAL = 10
-export const GOAL_CHOICES = [5, 10, 15, 20] as const
+// The goal is set as "N a day × D days a week"; the plant grows toward the week's total
+export interface Goal {
+  daily: number
+  days: number
+}
+export const DEFAULT_GOAL: Goal = { daily: 2, days: 5 }
+export const DAILY_CHOICES = [2, 3, 5, 10, 15] as const
+export const DAY_CHOICES = [5, 6, 7] as const
+
+export function weeklyTarget(goal: Goal): number {
+  return goal.daily * goal.days
+}
 export const GARDEN_WEEKS = 8
 
 // Seed → sprout → herb → tree → blossom (goal reached)
@@ -44,6 +54,12 @@ export function weeklyCounts(dates: string[], now: Date, weeks = GARDEN_WEEKS): 
     if (i !== undefined) list[i].count++
   }
   return list
+}
+
+// Applications on the same local day as `day`
+export function countOnDay(dates: string[], day: Date): number {
+  const key = localDayKey(day)
+  return dates.filter(iso => localDayKey(new Date(iso)) === key).length
 }
 
 // Lowest weekly count for each stage: seed 0, sprout 1, growing half the goal,
