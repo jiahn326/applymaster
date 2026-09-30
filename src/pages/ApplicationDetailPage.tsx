@@ -11,6 +11,8 @@ import { tailorResume } from '../lib/tailorResume'
 import { generateCoverLetter } from '../lib/generateCoverLetter'
 import ResumeChangesView from '../components/ResumeChangesView'
 import FitReasons from '../components/FitReasons'
+import QuestionsTab from '../components/QuestionsTab'
+import type { ApplicationAnswer } from '../lib/answers'
 import { useAbortable } from '../hooks/useAbortable'
 import { useSlowFlag } from '../hooks/useSlowFlag'
 import { errorMessage, type ResumeRow, type UserSettingsRow } from '../lib/records'
@@ -37,6 +39,7 @@ interface Application {
   cover_letter: string | null
   cover_letter_submitted: boolean
   created_at: string
+  answers: ApplicationAnswer[] | null
 }
 
 export default function ApplicationDetailPage() {
@@ -47,7 +50,7 @@ export default function ApplicationDetailPage() {
   const [rawText, setRawText] = useState('')
   const [resumeId, setResumeId] = useState<string | undefined>()
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<'resume' | 'cover' | 'why'>('resume')
+  const [activeTab, setActiveTab] = useState<'resume' | 'cover' | 'questions'>('resume')
   const [toast, setToast] = useState<string | null>(null)
   const [editingMeta, setEditingMeta] = useState(false)
   const [editCompany, setEditCompany] = useState('')
@@ -60,6 +63,10 @@ export default function ApplicationDetailPage() {
   const [jdChanged, setJdChanged] = useState(false)
   const jdRef = useRef<HTMLDivElement>(null)
   const [currentLocation, setCurrentLocation] = useState<string | undefined>()
+  // Application questions and answers; saved in click order like Undo/Source
+  const [answers, setAnswers] = useState<ApplicationAnswer[]>([])
+  const answersRef = useRef<ApplicationAnswer[]>([])
+  const answersQueue = useRef<Promise<unknown>>(Promise.resolve())
   const [urlValue, setUrlValue] = useState('')
   const [urlError, setUrlError] = useState<string | null>(null)
 
@@ -70,7 +77,6 @@ export default function ApplicationDetailPage() {
   const tailorJob = useAbortable()
   const reanalyzeJob = useAbortable()
   const coverLetterJob = useAbortable()
-  const whyJob = useAbortable()
   const [tailoring, setTailoring] = useState(false)
   // Shown after Re-tailor: the new result replaces the old one, so say how it compares
   const [retailorNote, setRetailorNote] = useState<{ count: number; previous: number } | null>(null)
@@ -80,10 +86,6 @@ export default function ApplicationDetailPage() {
   const [generatingCL, setGeneratingCL] = useState(false)
   const [coverLetterError, setCoverLetterError] = useState<string | null>(null)
   const [copiedCL, setCopiedCL] = useState(false)
-  const [whyAnswer, setWhyAnswer] = useState<string | null>(null)
-  const [generatingWhy, setGeneratingWhy] = useState(false)
-  const [whyLength, setWhyLength] = useState<'short' | 'medium' | 'long'>('medium')
-  const [copiedWhy, setCopiedWhy] = useState(false)
   const [fitExpanded, setFitExpanded] = useState(false)
   const [editingNotes, setEditingNotes] = useState(false)
   const [notesValue, setNotesValue] = useState('')
@@ -100,7 +102,6 @@ export default function ApplicationDetailPage() {
   // Slow warning for long-running API calls
   const tailoringSlow = useSlowFlag(tailoring)
   const generatingCLSlow = useSlowFlag(generatingCL)
-  const generatingWhySlow = useSlowFlag(generatingWhy)
 
   useEffect(() => {
     async function load() {
@@ -112,6 +113,8 @@ export default function ApplicationDetailPage() {
       const a = appData as Application
       setApp(a)
       setNotesValue(a?.notes ?? '')
+      answersRef.current = a?.answers ?? []
+      setAnswers(answersRef.current)
       const activeId = (settingsData as UserSettingsRow | null)?.active_resume_id
       const resumes = (resumesData ?? []) as ResumeRow[]
       const resume = resumes.find(r => r.id === activeId) ?? resumes[0]
@@ -158,7 +161,7 @@ export default function ApplicationDetailPage() {
   async function saveJd() {
     if (!app) return
     const next = jdValue.trim() || null
-    const hadResults = !!(app.fit_analysis || app.tailored_resume || coverLetter || whyAnswer)
+    const hadResults = !!(app.fit_analysis || app.tailored_resume || coverLetter || answers.length)
     if (next !== app.job_description && app.job_description && hadResults) setJdChanged(true)
     setApp({ ...app, job_description: next })
     setEditingJd(false)
@@ -279,13 +282,7 @@ export default function ApplicationDetailPage() {
     setGeneratingCL(true)
     setCoverLetterError(null)
     try {
-      // The letter reads the resume actually being sent: this application's tailored
-      // version (undone changes excluded), or the current resume if it wasn't tailored
-      const base = app.tailored_resume?.base?.structure ?? structure
-      const resumeText = app.tailored_resume && base
-        ? resumeToText(resolveTailoring(base, app.tailored_resume).structure)
-        : rawText || undefined
-      const result = await generateCoverLetter(app.company, app.role, app.job_description, structure?.header, resumeText, signal)
+      const result = await generateCoverLetter(app.company, app.role, app.job_description, structure?.header, submittedResumeText(), signal)
       if (signal.aborted) return
       setCoverLetter(result)
       await supabase.from('applications').update({ cover_letter: result }).eq('id', app.id)
@@ -303,20 +300,24 @@ export default function ApplicationDetailPage() {
     await supabase.from('applications').update({ cover_letter_submitted: next }).eq('id', app.id)
   }
 
-  async function handleGenerateWhy(length = whyLength) {
-    if (!app?.job_description) return
-    const signal = whyJob.start()
-    setGeneratingWhy(true)
-    try {
-      const { api } = await import('../lib/api')
-      const result = await api.generateWhyCompany(app.company, app.role, app.job_description, rawText, length, signal)
-      if (signal.aborted) return
-      setWhyAnswer(result)
-    } catch (err) {
-      if (!signal.aborted) alert('Generation failed: ' + errorMessage(err, 'Unknown error'))
-    } finally {
-      if (whyJob.isCurrent(signal)) setGeneratingWhy(false)
-    }
+  // The resume actually being sent: this application's tailored version (undone
+  // changes excluded), or the current resume if it wasn't tailored
+  function submittedResumeText(): string | undefined {
+    if (!app) return undefined
+    const base = app.tailored_resume?.base?.structure ?? structure
+    return app.tailored_resume && base
+      ? resumeToText(resolveTailoring(base, app.tailored_resume).structure)
+      : rawText || undefined
+  }
+
+  function changeAnswers(update: (prev: ApplicationAnswer[]) => ApplicationAnswer[]) {
+    const next = update(answersRef.current)
+    answersRef.current = next
+    setAnswers(next)
+    answersQueue.current = answersQueue.current.then(async () => {
+      const { error } = await supabase.from('applications').update({ answers: next }).eq('id', id)
+      if (error && answersRef.current === next) alert('Could not save answers: ' + error.message)
+    })
   }
 
   function cancelJob(job: ReturnType<typeof useAbortable>, setBusy: (v: boolean) => void) {
@@ -324,7 +325,7 @@ export default function ApplicationDetailPage() {
     setBusy(false)
   }
 
-  function handleTabClick(t: 'resume' | 'cover' | 'why') {
+  function handleTabClick(t: 'resume' | 'cover' | 'questions') {
     setActiveTab(t)
     if (t === 'cover' && !coverLetter && !generatingCL && app?.job_description) {
       handleGenerateCoverLetter()
@@ -580,12 +581,12 @@ export default function ApplicationDetailPage() {
         <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
           {/* Tab bar */}
           <div className="flex border-b border-gray-100">
-            {(['resume', 'cover', 'why'] as const).map(t => (
+            {(['resume', 'cover', 'questions'] as const).map(t => (
               <button key={t} onClick={() => handleTabClick(t)}
                 className={`flex-1 py-3 text-sm font-semibold transition-colors ${
                   activeTab === t ? 'text-gray-900 border-b-2 border-gray-900' : 'text-gray-400 hover:text-gray-600'
                 }`}>
-                {t === 'resume' ? '📄 Resume' : t === 'cover' ? '✉️ Cover Letter' : `💬 Why ${app.company}?`}
+                {t === 'resume' ? '📄 Resume' : t === 'cover' ? '✉️ Cover Letter' : `💬 Questions${answers.length ? ` (${answers.length})` : ''}`}
               </button>
             ))}
           </div>
@@ -714,58 +715,17 @@ export default function ApplicationDetailPage() {
               </div>
             )}
 
-            {/* Why Company tab */}
-            {activeTab === 'why' && (
-              <div className="space-y-4">
-                {/* Length selector */}
-                <div className="flex gap-2">
-                  {(['short', 'medium', 'long'] as const).map(l => (
-                    <button key={l} onClick={() => setWhyLength(l)}
-                      className={`flex-1 py-1.5 text-xs font-semibold rounded-lg border transition-colors capitalize ${
-                        whyLength === l ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-500 border-gray-200 hover:border-gray-400'
-                      }`}>
-                      {l}
-                    </button>
-                  ))}
-                </div>
-
-                {whyAnswer ? (
-                  <>
-                    <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
-                      <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">{whyAnswer}</p>
-                    </div>
-                    <div className="flex gap-2">
-                      <button onClick={() => { navigator.clipboard.writeText(whyAnswer); setCopiedWhy(true); setTimeout(() => setCopiedWhy(false), 1500) }}
-                        className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium py-2.5 rounded-xl text-sm transition-colors">
-                        {copiedWhy ? <span className="text-emerald-600">✓ Copied!</span> : 'Copy'}
-                      </button>
-                      <button onClick={() => handleGenerateWhy()} disabled={generatingWhy}
-                        className="flex-1 bg-gray-50 border border-gray-200 text-gray-500 font-medium py-2.5 rounded-xl hover:bg-gray-100 transition-all text-sm disabled:opacity-40">
-                        {generatingWhy ? '✨ Regenerating...' : '↺ Regenerate'}
-                      </button>
-                      {generatingWhy && (
-                        <button onClick={() => cancelJob(whyJob, setGeneratingWhy)}
-                          className="bg-white border border-gray-200 text-gray-600 font-medium px-4 py-2.5 rounded-xl hover:bg-gray-100 transition-all text-sm">
-                          Cancel
-                        </button>
-                      )}
-                    </div>
-                  </>
-                ) : generatingWhy ? (
-                  <div className="flex flex-col items-center justify-center py-10 gap-3">
-                    <div className="w-6 h-6 border-2 border-gray-300 border-t-gray-900 rounded-full animate-spin" />
-                    <p className="text-sm text-gray-400">Writing your answer...</p>
-                    {generatingWhySlow && <p className="text-amber-500 text-xs">Taking longer than usual — hang tight</p>}
-                    <button onClick={() => cancelJob(whyJob, setGeneratingWhy)} className="shrink-0 text-xs font-medium text-gray-500 hover:text-gray-900 px-3 py-1.5 rounded-lg hover:bg-gray-100 transition-colors">Cancel</button>
-                  </div>
-                ) : (
-                  <button onClick={() => handleGenerateWhy()} disabled={!app.job_description}
-                    className="w-full bg-gray-900 hover:bg-gray-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-semibold py-3 rounded-xl transition-colors">
-                    ✨ Generate Answer
-                  </button>
-                )}
-                {!app.job_description && <p className="text-gray-400 text-sm text-center">Add a job description to generate an answer.</p>}
-              </div>
+            {/* Questions tab */}
+            {activeTab === 'questions' && (
+              <QuestionsTab
+                company={app.company}
+                role={app.role}
+                jobDescription={app.job_description}
+                answers={answers}
+                resumeText={submittedResumeText()}
+                onChange={changeAnswers}
+                onAddJobDescription={startEditJd}
+              />
             )}
           </div>
         </div>

@@ -29,6 +29,6 @@ export const api = {
   parseResumeStructure: (rawText: string, signal?: AbortSignal) =>
     callProxy('parseResumeStructure', { rawText }, signal),
 
-  generateWhyCompany: (company: string, role: string, jobDescription: string, resumeRawText?: string, length?: 'short' | 'medium' | 'long', signal?: AbortSignal) =>
-    callProxy('generateWhyCompany', { company, role, jobDescription, resumeRawText, length }, signal).then(d => d.text as string),
+  answerQuestion: (company: string, role: string, jobDescription: string, question: string, resumeText: string | undefined, length: 'short' | 'medium' | 'long', maxChars: number | null, signal?: AbortSignal) =>
+    callProxy('answerQuestion', { company, role, jobDescription, question, resumeText, length, maxChars }, signal).then(d => d.text as string),
 }

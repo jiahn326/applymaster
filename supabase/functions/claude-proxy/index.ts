@@ -26,7 +26,7 @@ const REQUIRED: Record<string, string[]> = {
   generateCoverLetter:  ['company', 'role', 'jobDescription'],
   analyzeAndExtract:    ['content'],
   parseResumeStructure: ['rawText'],
-  generateWhyCompany:   ['company', 'role', 'jobDescription'],
+  answerQuestion:       ['company', 'role', 'jobDescription', 'question'],
 }
 
 Deno.serve(async (req) => {
@@ -65,7 +65,7 @@ Deno.serve(async (req) => {
     else if (action === 'generateCoverLetter') result = await generateCoverLetter(client, payload.company, payload.role, payload.jobDescription, payload.header, payload.today, payload.template, payload.resumeText)
     else if (action === 'analyzeAndExtract')  result = await analyzeAndExtract(client, payload.content, payload.resumeRawText, payload.currentLocation)
     else if (action === 'parseResumeStructure') result = await parseResumeStructure(client, payload.rawText)
-    else if (action === 'generateWhyCompany') result = await generateWhyCompany(client, payload.company, payload.role, payload.jobDescription, payload.resumeRawText, payload.length)
+    else if (action === 'answerQuestion')     result = await answerQuestion(client, payload.company, payload.role, payload.jobDescription, payload.question, payload.resumeText, payload.length, payload.maxChars)
 
     return json(result, 200)
   } catch (err) {
@@ -274,30 +274,40 @@ Return JSON only:
   return parseJsonReply(text)
 }
 
-async function generateWhyCompany(client: Claude, company: string, role: string, jobDescription: string, resumeRawText?: string, length: 'short' | 'medium' | 'long' = 'medium') {
+// Answers any application question ("Why do you want to work here?", "What part of
+// this role energizes you most?", ...) from the job description and the resume
+// being submitted, under the same fact rules as cover letters
+async function answerQuestion(client: Claude, company: string, role: string, jobDescription: string, question: string, resumeText?: string, length: 'short' | 'medium' | 'long' = 'medium', maxChars?: number | null) {
   const lengthGuide = {
     short: '2-3 sentences',
     medium: '1 paragraph (4-6 sentences)',
     long: '2 paragraphs',
-  }[length]
+  }[length] ?? '1 paragraph (4-6 sentences)'
+  const limit = typeof maxChars === 'number' && maxChars > 0
+    ? `\n- Hard limit: at most ${maxChars} characters including spaces (the form rejects longer answers). Aim for about ${Math.round(maxChars * 0.9)}.`
+    : ''
+  const notOnResume = resumeText ? jdOnlyTerms(jobDescription, resumeText, `${company} ${role}`) : []
 
-  const text = await callClaude(client, `Write a genuine answer to "Why do you want to work at ${company}?" for a ${role} application.
+  const text = await callClaude(client, `Write the candidate's answer to this question on their application for the ${role} role at ${company}.
+
+QUESTION:
+${question}
 
 STRICT RULES — violations make the answer unusable:
-- ONLY reference experience, skills, and background that exist in the resume
-- NEVER claim to have used ${company}'s product, been a customer, or admired the company for years unless it's in the resume
-- NEVER fabricate personal stories or anecdotes
-- Focus on: what in the JD aligns with the candidate's actual skills/experience, what specifically about the role or tech stack is a natural next step, what the candidate genuinely brings
+- Answer exactly the question asked. When it asks why this company or role, ground the reasons in what the job description says about the work, team, or stack.
+- ONLY reference experience, skills, projects, and results that exist in the resume. Never invent metrics, stories, or anecdotes.
+- NEVER claim to have used ${company}'s product, been a customer, or admired the company for years unless the resume says so.${notOnResume.length ? `
+- The resume doesn't show: ${notOnResume.join(', ')}. Never present these as something the candidate has used or knows; mention one only as part of what the role involves.` : ''}
 - No generic filler: "innovative", "passionate", "fast-paced", "excited to contribute", "make an impact"
-- Sound like a real engineer wrote it, not a career coach
+- Sound like a real engineer wrote it, not a career coach.
 - The candidate is a non-native English speaker — write naturally but not overly polished. Avoid complex sentence structures, fancy vocabulary, or native-sounding idioms. Simple, clear, direct sentences only.
-- First person, plain text, no bullet points
-- Length: ${lengthGuide}
+- First person, plain text, no bullet points, no heading, and don't repeat the question.
+- Length: ${lengthGuide}${limit}
 
 JOB DESCRIPTION:
 ${jobDescription}
 
-${resumeRawText ? `CANDIDATE'S RESUME (only use what's actually here):\n${resumeRawText}` : '(No resume provided — base answer only on the JD and the candidate\'s likely background for this role)'}
+${resumeText ? `CANDIDATE'S RESUME (only use what's actually here):\n${resumeText}` : "(No resume provided — make no claims about the candidate's experience; focus on what the role involves.)"}
 
 Return only the answer text, nothing else.`, 4000)
 
