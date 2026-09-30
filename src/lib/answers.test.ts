@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { whyQuestion, newAnswer, updateAnswer, parseMaxChars, isOverLimit } from './answers'
+import { whyQuestion, newAnswer, updateAnswer, parseMaxChars, isOverLimit, placeholderCount, splitPlaceholders } from './answers'
 
 describe('answers', () => {
   it('builds the default why-company question', () => {
@@ -31,5 +31,20 @@ describe('answers', () => {
     expect(isOverLimit({ ...newAnswer('Q', 'short', 10), answer: '12345678901' })).toBe(true)
     expect(isOverLimit({ ...newAnswer('Q', 'short', 10), answer: '1234567890' })).toBe(false)
     expect(isOverLimit({ ...newAnswer('Q', 'short', null), answer: 'x'.repeat(5000) })).toBe(false)
+  })
+
+  it('keeps trimmed notes with a new answer', () => {
+    expect(newAnswer('Q', 'medium', null, '  배송이 늦었음  ').notes).toBe('배송이 늦었음')
+  })
+
+  it('finds and splits "Add a real example" placeholders', () => {
+    const text = 'I manage orders. [Add a real example: what went wrong, what you did, and the result]. I learned a lot.'
+    expect(placeholderCount(text)).toBe(1)
+    expect(placeholderCount('No placeholders [here].')).toBe(0)
+    expect(splitPlaceholders(text)).toEqual([
+      { text: 'I manage orders. ', placeholder: false },
+      { text: '[Add a real example: what went wrong, what you did, and the result]', placeholder: true },
+      { text: '. I learned a lot.', placeholder: false },
+    ])
   })
 })

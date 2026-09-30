@@ -8,6 +8,9 @@ export interface ApplicationAnswer {
   answer: string
   length: AnswerLength
   maxChars: number | null
+  // The candidate's own details for story questions ("a time something went wrong");
+  // the answer uses only these and the resume. Older answers don't have it.
+  notes?: string
   updated_at: string
 }
 
@@ -17,8 +20,29 @@ export function whyQuestion(company: string): string {
   return `Why do you want to work at ${company}?`
 }
 
-export function newAnswer(question: string, length: AnswerLength, maxChars: number | null): ApplicationAnswer {
-  return { id: crypto.randomUUID(), question: question.trim(), answer: '', length, maxChars, updated_at: new Date().toISOString() }
+export function newAnswer(question: string, length: AnswerLength, maxChars: number | null, notes = ''): ApplicationAnswer {
+  return { id: crypto.randomUUID(), question: question.trim(), answer: '', length, maxChars, notes: notes.trim(), updated_at: new Date().toISOString() }
+}
+
+// When a question asks for a story the resume and notes don't cover, the answer
+// leaves "[Add a real example: ...]" instead of inventing one
+export const PLACEHOLDER = /\[Add a real example:[^\]]*\]/g
+
+export function placeholderCount(text: string): number {
+  return text.match(PLACEHOLDER)?.length ?? 0
+}
+
+// Splits an answer into plain text and placeholder parts for highlighting
+export function splitPlaceholders(text: string): { text: string; placeholder: boolean }[] {
+  const parts: { text: string; placeholder: boolean }[] = []
+  let last = 0
+  for (const m of text.matchAll(PLACEHOLDER)) {
+    if (m.index! > last) parts.push({ text: text.slice(last, m.index), placeholder: false })
+    parts.push({ text: m[0], placeholder: true })
+    last = m.index! + m[0].length
+  }
+  if (last < text.length) parts.push({ text: text.slice(last), placeholder: false })
+  return parts
 }
 
 // Returns a new list with `patch` applied to the answer with `id`

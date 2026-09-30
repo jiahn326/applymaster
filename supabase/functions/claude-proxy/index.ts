@@ -65,7 +65,7 @@ Deno.serve(async (req) => {
     else if (action === 'generateCoverLetter') result = await generateCoverLetter(client, payload.company, payload.role, payload.jobDescription, payload.header, payload.today, payload.template, payload.resumeText)
     else if (action === 'analyzeAndExtract')  result = await analyzeAndExtract(client, payload.content, payload.resumeRawText, payload.currentLocation)
     else if (action === 'parseResumeStructure') result = await parseResumeStructure(client, payload.rawText)
-    else if (action === 'answerQuestion')     result = await answerQuestion(client, payload.company, payload.role, payload.jobDescription, payload.question, payload.resumeText, payload.length, payload.maxChars)
+    else if (action === 'answerQuestion')     result = await answerQuestion(client, payload.company, payload.role, payload.jobDescription, payload.question, payload.resumeText, payload.length, payload.maxChars, payload.notes)
 
     return json(result, 200)
   } catch (err) {
@@ -277,7 +277,7 @@ Return JSON only:
 // Answers any application question ("Why do you want to work here?", "What part of
 // this role energizes you most?", ...) from the job description and the resume
 // being submitted, under the same fact rules as cover letters
-async function answerQuestion(client: Claude, company: string, role: string, jobDescription: string, question: string, resumeText?: string, length: 'short' | 'medium' | 'long' = 'medium', maxChars?: number | null) {
+async function answerQuestion(client: Claude, company: string, role: string, jobDescription: string, question: string, resumeText?: string, length: 'short' | 'medium' | 'long' = 'medium', maxChars?: number | null, notes?: string) {
   const lengthGuide = {
     short: '2-3 sentences',
     medium: '1 paragraph (4-6 sentences)',
@@ -295,7 +295,8 @@ ${question}
 
 STRICT RULES — violations make the answer unusable:
 - Answer exactly the question asked. When it asks why this company or role, ground the reasons in what the job description says about the work, team, or stack.
-- ONLY reference experience, skills, projects, and results that exist in the resume. Never invent metrics, stories, or anecdotes.
+- ONLY reference experience, skills, projects, and results that exist in the resume${notes?.trim() ? " or in the candidate's notes" : ''}. Never invent events, metrics, outcomes, or anecdotes.
+- When the question asks for a specific example, story, or situation (e.g. "a time something went wrong") and ${notes?.trim() ? "neither the resume nor the candidate's notes describe" : 'the resume doesn\'t describe'} one, do NOT make one up. Write the rest of the answer normally and put a placeholder in square brackets where the story belongs, starting with "Add a real example:" and saying what to include — for example: [Add a real example: what went wrong, what you did, and the result]. A made-up event makes the answer unusable.
 - NEVER claim to have used ${company}'s product, been a customer, or admired the company for years unless the resume says so.${notOnResume.length ? `
 - The resume doesn't show: ${notOnResume.join(', ')}. Never present these as something the candidate has used or knows; mention one only as part of what the role involves.` : ''}
 - No generic filler: "innovative", "passionate", "fast-paced", "excited to contribute", "make an impact"
@@ -308,6 +309,7 @@ JOB DESCRIPTION:
 ${jobDescription}
 
 ${resumeText ? `CANDIDATE'S RESUME (only use what's actually here):\n${resumeText}` : "(No resume provided — make no claims about the candidate's experience; focus on what the role involves.)"}
+${notes?.trim() ? `\nCANDIDATE'S NOTES (true details from the candidate, possibly in Korean). Write the story in English using only what these notes say. Do not add reasons, numbers, timing, comparisons ("instead of..."), feelings, or results that the notes don't state — a shorter story is better than an embellished one:\n${notes.trim()}\n` : ''}
 
 Return only the answer text, nothing else.`, 4000)
 

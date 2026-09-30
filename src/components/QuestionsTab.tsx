@@ -4,7 +4,7 @@ import { errorMessage } from '../lib/records'
 import { useAbortable } from '../hooks/useAbortable'
 import { useSlowFlag } from '../hooks/useSlowFlag'
 import {
-  LENGTH_LABELS, whyQuestion, newAnswer, updateAnswer, parseMaxChars, isOverLimit,
+  LENGTH_LABELS, whyQuestion, newAnswer, updateAnswer, parseMaxChars, isOverLimit, placeholderCount, splitPlaceholders,
   type ApplicationAnswer, type AnswerLength,
 } from '../lib/answers'
 
@@ -29,6 +29,10 @@ export default function QuestionsTab({ company, role, jobDescription, answers, r
   const [question, setQuestion] = useState('')
   const [length, setLength] = useState<AnswerLength>('medium')
   const [limit, setLimit] = useState('')
+  const [notes, setNotes] = useState('')
+  const [showNotes, setShowNotes] = useState(false)
+  const [notesEditingId, setNotesEditingId] = useState<string | null>(null)
+  const [notesValue, setNotesValue] = useState('')
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editValue, setEditValue] = useState('')
   const [copiedId, setCopiedId] = useState<string | null>(null)
@@ -40,7 +44,7 @@ export default function QuestionsTab({ company, role, jobDescription, answers, r
     const signal = job.start()
     setGeneratingId(entry.id)
     try {
-      const text = await api.answerQuestion(company, role, jobDescription, entry.question, resumeText, entry.length, entry.maxChars, signal)
+      const text = await api.answerQuestion(company, role, jobDescription, entry.question, resumeText, entry.length, entry.maxChars, entry.notes || undefined, signal)
       if (signal.aborted) return
       onChange(prev => updateAnswer(prev, entry.id, { answer: text.trim() }))
     } catch (err) {
@@ -50,12 +54,21 @@ export default function QuestionsTab({ company, role, jobDescription, answers, r
     }
   }
 
-  function add(text: string) {
+  function add(text: string, withNotes = true) {
     if (!text.trim()) return
-    const entry = newAnswer(text, length, parseMaxChars(limit))
+    const entry = newAnswer(text, length, parseMaxChars(limit), withNotes ? notes : '')
     onChange(prev => [...prev, entry])
     setQuestion('')
+    if (withNotes) { setNotes(''); setShowNotes(false) }
     generate(entry)
+  }
+
+  function saveNotes(entry: ApplicationAnswer) {
+    const next = notesValue.trim()
+    onChange(prev => updateAnswer(prev, entry.id, { notes: next }))
+    setNotesEditingId(null)
+    // Rewrite with the new details right away
+    generate({ ...entry, notes: next })
   }
 
   function remove(id: string) {
@@ -70,6 +83,8 @@ export default function QuestionsTab({ company, role, jobDescription, answers, r
   }
 
   async function copy(a: ApplicationAnswer) {
+    const n = placeholderCount(a.answer)
+    if (n && !confirm(`This answer still has ${n} placeholder${n === 1 ? '' : 's'} to fill in with a real example. Copy anyway?`)) return
     await navigator.clipboard.writeText(a.answer)
     setCopiedId(a.id)
     setTimeout(() => setCopiedId(null), 1500)
@@ -115,11 +130,46 @@ export default function QuestionsTab({ company, role, jobDescription, answers, r
                 </div>
               </div>
             ) : a.answer ? (
-              <div className="bg-gray-50 rounded-lg p-3 border border-gray-100">
-                <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">{a.answer}</p>
+              <div className="space-y-2">
+                <div className="bg-gray-50 rounded-lg p-3 border border-gray-100">
+                  <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">
+                    {splitPlaceholders(a.answer).map((part, i) => part.placeholder
+                      ? <mark key={i} className="bg-amber-100 text-amber-900 rounded px-0.5 font-medium">{part.text}</mark>
+                      : <span key={i}>{part.text}</span>)}
+                  </p>
+                </div>
+                {placeholderCount(a.answer) > 0 && (
+                  <p className="text-xs text-amber-700">
+                    The resume doesn't include a story for this, so it was left as a placeholder instead of made up.
+                    Add what really happened under “Your real experience” and it will be rewritten, or edit the answer yourself.
+                  </p>
+                )}
               </div>
             ) : (
               <p className="text-sm text-gray-400 italic">No answer yet.</p>
+            )}
+
+            {editingId !== a.id && (
+              notesEditingId === a.id ? (
+                <div className="space-y-2">
+                  <textarea autoFocus value={notesValue} onChange={e => setNotesValue(e.target.value)}
+                    placeholder="What really happened — rough notes are fine, Korean is OK. Only these details are used."
+                    className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gray-900 resize-y h-24" />
+                  <div className="flex gap-2">
+                    <button onClick={() => saveNotes(a)} disabled={generatingId !== null}
+                      className="text-xs font-semibold text-white bg-gray-900 hover:bg-gray-700 disabled:bg-gray-300 px-3 py-1.5 rounded-lg">Save & rewrite</button>
+                    <button onClick={() => setNotesEditingId(null)} className="text-xs text-gray-500 hover:text-gray-700 px-2 py-1.5">Cancel</button>
+                  </div>
+                </div>
+              ) : a.notes ? (
+                <p className="text-xs text-gray-500">
+                  <span className="font-semibold text-gray-600">Your real experience: </span>{a.notes}{' '}
+                  <button onClick={() => { setNotesValue(a.notes ?? ''); setNotesEditingId(a.id) }} className="underline underline-offset-2 hover:text-gray-900">Edit</button>
+                </p>
+              ) : (
+                <button onClick={() => { setNotesValue(''); setNotesEditingId(a.id) }}
+                  className="text-xs text-gray-500 hover:text-gray-900 underline underline-offset-2">+ Add your real experience for this question</button>
+              )
             )}
 
             {editingId !== a.id && (
@@ -158,7 +208,7 @@ export default function QuestionsTab({ company, role, jobDescription, answers, r
       {/* Add a question */}
       <div className="border border-dashed border-gray-300 rounded-xl p-4 space-y-3">
         {!hasWhy && (
-          <button onClick={() => add(whyQuestion(company))} disabled={generatingId !== null}
+          <button onClick={() => add(whyQuestion(company), false)} disabled={generatingId !== null}
             className="text-xs font-medium text-gray-600 bg-gray-50 border border-gray-200 hover:bg-gray-100 px-3 py-1.5 rounded-full disabled:opacity-40">
             + {whyQuestion(company)}
           </button>
@@ -166,6 +216,15 @@ export default function QuestionsTab({ company, role, jobDescription, answers, r
         <textarea value={question} onChange={e => setQuestion(e.target.value)}
           placeholder="Paste a question from the application, e.g. “What part of this role energizes you most, and why?”"
           className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gray-900 resize-y h-20" />
+        {showNotes ? (
+          <textarea value={notes} onChange={e => setNotes(e.target.value)}
+            placeholder="Your real experience for this question (optional) — e.g. what went wrong, what you did, and what happened. Rough notes or Korean are fine; only these details and your resume are used."
+            className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gray-900 resize-y h-20" />
+        ) : (
+          <button onClick={() => setShowNotes(true)} className="text-xs text-gray-500 hover:text-gray-900 underline underline-offset-2">
+            + Add your real experience (for “tell us about a time…” questions)
+          </button>
+        )}
         <div className="flex flex-wrap items-center gap-2">
           <div className="flex gap-1">
             {LENGTHS.map(l => (
