@@ -7,6 +7,10 @@ async function lazyExportPdf(...args: Parameters<typeof import('../lib/exportRes
   const { exportPdf } = await import('../lib/exportResume')
   return exportPdf(...args)
 }
+async function lazyExportCoverLetterPdf(...args: Parameters<typeof import('../lib/exportCoverLetter').exportCoverLetterPdf>) {
+  const { exportCoverLetterPdf } = await import('../lib/exportCoverLetter')
+  return exportCoverLetterPdf(...args)
+}
 import { tailorResume } from '../lib/tailorResume'
 import { generateCoverLetter } from '../lib/generateCoverLetter'
 import ResumeChangesView from '../components/ResumeChangesView'
@@ -16,7 +20,7 @@ import { placeholderCount, splitPlaceholders, type ApplicationAnswer } from '../
 import { useAbortable } from '../hooks/useAbortable'
 import { useSlowFlag } from '../hooks/useSlowFlag'
 import { errorMessage, type ResumeRow, type UserSettingsRow } from '../lib/records'
-import { resumeFileName, resolveTailoring, carryOverUndone, resumeToText } from '../lib/resumeUtils'
+import { resumeFileName, documentFileName, resolveTailoring, carryOverUndone, resumeToText } from '../lib/resumeUtils'
 import { APPLIED_THROUGH, appliedThroughLabel } from '../lib/appliedThrough'
 import { STATUS_CONFIG, TRACKED_STATUSES, type AppStatus } from '../lib/status'
 import type { TailoredResume } from '../lib/tailorResume'
@@ -380,6 +384,14 @@ export default function ApplicationDetailPage() {
     lazyExportPdf(viewStructure, app.tailored_resume, fileName, viewRawText)
   }
 
+  function handleExportCoverLetterPdf() {
+    if (!coverLetter) return
+    const n = placeholderCount(coverLetter)
+    if (n && !confirm(`This cover letter still has ${n} placeholder${n === 1 ? '' : 's'} to fill in with a real example. Download anyway?`)) return
+    const header = viewStructure?.header
+    lazyExportCoverLetterPdf(coverLetter, documentFileName(header?.name, 'CoverLetter'), header)
+  }
+
   return (
     <div className="min-h-screen bg-[#F7F8FA]">
       {/* Header */}
@@ -612,6 +624,7 @@ export default function ApplicationDetailPage() {
                         />
                         <span className="text-sm text-gray-600">I submitted this cover letter</span>
                       </label>
+                      <div className="flex items-center gap-2">
                       <button onClick={() => {
                         const n = placeholderCount(coverLetter)
                         if (n && !confirm(`This cover letter still has ${n} placeholder${n === 1 ? '' : 's'} to fill in with a real example. Copy anyway?`)) return
@@ -626,9 +639,12 @@ export default function ApplicationDetailPage() {
                         setCopiedCL(true)
                         setTimeout(() => setCopiedCL(false), 1500)
                       }}
-                        className="text-xs font-medium px-3 py-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors">
+                        className="text-xs font-medium px-3 py-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors whitespace-nowrap">
                         {copiedCL ? <span className="text-emerald-600">✓ Copied!</span> : <span className="text-gray-600">Copy body</span>}
                       </button>
+                      <button onClick={handleExportCoverLetterPdf}
+                        className="bg-gray-50 border border-gray-200 text-gray-700 font-medium px-3 py-1.5 rounded-lg hover:bg-gray-100 transition-all text-xs whitespace-nowrap">↓ PDF</button>
+                      </div>
                     </div>
                     {editingCL ? (
                       <div className="space-y-2">

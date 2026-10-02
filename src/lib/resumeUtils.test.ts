@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { resolveTailoring, carryOverUndone, normalizeBullet, labeledLine, resumeFileName } from './resumeUtils'
+import { resolveTailoring, carryOverUndone, normalizeBullet, labeledLine, resumeFileName, documentFileName } from './resumeUtils'
 import type { ResumeStructure } from './parseResumeStructure'
 import type { BulletDiff, TailoredResume } from './tailorResume'
 
@@ -202,5 +202,6 @@ describe('resumeFileName', () => {
     expect(resumeFileName('Jane Doe')).toBe('Jane_Doe_Resume')
     expect(resumeFileName('Jane/Doe: "PhD"')).toBe('JaneDoe_PhD_Resume')
     expect(resumeFileName('')).toBe('Resume')
+    expect(documentFileName('Jane Doe', 'CoverLetter')).toBe('Jane_Doe_CoverLetter')
   })
 })

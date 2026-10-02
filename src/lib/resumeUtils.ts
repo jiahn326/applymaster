@@ -153,14 +153,19 @@ export function labeledLine(label: string, value: string): { label: string; text
 // Download name recruiters see, e.g. "Jane_Doe_Resume". No company name, so the same
 // file can't reveal (or mislabel) where else you're applying. Characters that are
 // invalid in file names are dropped; falls back to "Resume" when there's no name.
-export function resumeFileName(name?: string): string {
+// "Jane_Doe_Resume" / "Jane_Doe_CoverLetter", without characters file systems reject
+export function documentFileName(name: string | undefined, kind: 'Resume' | 'CoverLetter'): string {
   const base = [...(name ?? '')]
     .map(c => (c < ' ' ? ' ' : c))
     .filter(c => !'\\/:*?"<>|'.includes(c))
     .join('')
     .trim()
     .replace(/\s+/g, '_')
-  return base ? `${base}_Resume` : 'Resume'
+  return base ? `${base}_${kind}` : kind
+}
+
+export function resumeFileName(name?: string): string {
+  return documentFileName(name, 'Resume')
 }
 
 // Plain-text rendering of a resume structure, e.g. to give the cover letter
