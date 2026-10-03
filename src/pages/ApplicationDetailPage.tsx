@@ -89,7 +89,6 @@ export default function ApplicationDetailPage() {
   const [coverLetterSubmitted, setCoverLetterSubmitted] = useState(false)
   const [generatingCL, setGeneratingCL] = useState(false)
   const [coverLetterError, setCoverLetterError] = useState<string | null>(null)
-  const [copiedCL, setCopiedCL] = useState(false)
   const [editingCL, setEditingCL] = useState(false)
   const [clValue, setClValue] = useState('')
   const [fitExpanded, setFitExpanded] = useState(false)
@@ -625,27 +624,8 @@ export default function ApplicationDetailPage() {
                         />
                         <span className="text-sm text-gray-600">I submitted this cover letter</span>
                       </label>
-                      <div className="flex items-center gap-2">
-                      <button onClick={() => {
-                        const n = placeholderCount(coverLetter)
-                        if (n && !confirm(`This cover letter still has ${n} placeholder${n === 1 ? '' : 's'} to fill in with a real example. Copy anyway?`)) return
-                        const lines = coverLetter.split('\n')
-                        const dateIdx = lines.findIndex(l => /^(January|February|March|April|May|June|July|August|September|October|November|December)/i.test(l.trim()))
-                        const sincerelyIdx = lines.findIndex(l => /^sincerely/i.test(l.trim()))
-                        const body = lines.slice(
-                          dateIdx >= 0 ? dateIdx : 0,
-                          sincerelyIdx >= 0 ? sincerelyIdx : undefined
-                        ).join('\n').trim()
-                        navigator.clipboard.writeText(body)
-                        setCopiedCL(true)
-                        setTimeout(() => setCopiedCL(false), 1500)
-                      }}
-                        className="text-xs font-medium px-3 py-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors whitespace-nowrap">
-                        {copiedCL ? <span className="text-emerald-600">✓ Copied!</span> : <span className="text-gray-600">Copy body</span>}
-                      </button>
                       <button onClick={handleExportCoverLetterPdf}
                         className="bg-gray-50 border border-gray-200 text-gray-700 font-medium px-3 py-1.5 rounded-lg hover:bg-gray-100 transition-all text-xs whitespace-nowrap">↓ PDF</button>
-                      </div>
                     </div>
                     {editingCL ? (
                       <div className="space-y-2">
