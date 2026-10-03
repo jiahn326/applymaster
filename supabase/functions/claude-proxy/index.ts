@@ -87,16 +87,19 @@ function parseJsonReply(text: string) {
   }
 }
 
-// `noThinking` is for plain copy/extract tasks where reasoning only adds latency
+// `noThinking` is for plain copy/extract tasks where reasoning only adds latency.
+// Sonnet 5.5 rejects thinking "disabled"; "between_tools" is its lowest setting and,
+// with no tools in the request, returns text only.
 async function callClaude(client: Claude, prompt: string, maxTokens = 16000, opts: { noThinking?: boolean } = {}) {
   const message = await client.anthropic.messages.create({
-    model: 'claude-sonnet-5',
+    model: 'claude-sonnet-5-5',
     max_tokens: maxTokens,
     messages: [{ role: 'user', content: prompt }],
-    ...(opts.noThinking ? { thinking: { type: 'disabled' as const } } : {}),
+    ...(opts.noThinking ? { thinking: { type: 'between_tools' as const } } : {}),
   }, { signal: client.signal })
   if (message.stop_reason === 'max_tokens') throw new Error('Claude response was truncated (max_tokens reached)')
-  // Sonnet 5 runs adaptive thinking by default, so content[0] may be a thinking block
+  if (message.stop_reason === 'refusal') throw new Error('Claude declined this request')
+  // Adaptive thinking is on by default, so content[0] may be a thinking block
   const textBlock = message.content.find(b => b.type === 'text')
   const raw = textBlock?.type === 'text' ? textBlock.text : ''
   return raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim()

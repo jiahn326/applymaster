@@ -64,7 +64,7 @@ flowchart LR
 |------|-------|
 | Frontend | React, TypeScript, Vite, Tailwind CSS |
 | Backend | Supabase (Auth, PostgreSQL, Edge Functions) |
-| AI | Claude API (`claude-sonnet-5`) |
+| AI | Claude API (`claude-sonnet-5-5`) |
 | Document handling | pdf.js, Mammoth (parsing) · jsPDF (PDF export) |
 | Deployment | Vercel (auto-deploys from GitHub) |
 
