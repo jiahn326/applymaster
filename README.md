@@ -20,10 +20,10 @@ Tailoring a resume for each application is slow, and generic AI rewriting tools 
 - **Bullet-level tailoring:** Claude compares your resume with the job description and returns only the bullets worth changing, not a full rewrite.
 - **Side-by-side review:** Original on the left, tailored on the right, with synchronized scrolling. Only the changed words are highlighted: removed words on the left, added words on the right. Undo any single change you don't want, and the PDF follows your choices; re-tailoring remembers the edits you undid.
 - **Job fit analysis:** Paste a job URL or description to save the posting's own text (not a summary) and see how well you fit. Each category (skills, experience, location) lists specific gaps, marked required or preferred, and matches. Gaps must come from what the job description asks for, so things it doesn't mention (like a current non-engineering job) don't lower the score. The job description can be edited later, and the page offers to re-run fit, tailoring, or the cover letter from the new version.
-- **Cover letters and "Why this company" answers:** Written from the job description and the resume you're actually sending (the tailored version, with your undone changes left out). Your template's greeting and closing stay exactly as written; only the middle is tailored.
+- **Cover letters and "Why this company" answers:** Written from the job description and the resume you're actually sending (the tailored version, with your undone changes left out). Your template's greeting and closing stay exactly as written; only the middle is tailored. Edit the letter in the app, then download it as a PDF or copy the body into an application form that asks for text.
 - **Application tracking:** Save postings for later in a separate Saved tab, then mark them applied. Applications with no reply after 30 days are flagged for follow-up and can be marked "No response" in bulk. Filter by status and source (auto-detected from the posting URL: Indeed, Handshake, company career pages), search, and sort by date, fit, or company.
 - **Cancelable AI actions:** Any AI request (tailoring, analysis, generation, resume parsing) can be canceled while it runs.
-- **PDF export:** Embedded Lato font, named after you (e.g., `Jane_Doe_Resume.pdf`), never the company.
+- **PDF export:** The tailored resume (embedded Lato font) and the cover letter (US Letter, 1-inch margins, Arial-metric 11pt, name and contact line centered with clickable email and profile links). Files are named after you (e.g., `Jane_Doe_Resume.pdf`, `Jane_Doe_CoverLetter.pdf`), never the company, and a name written in capitals on the resume appears as "Jane Doe".
 
 ## How it works
 
@@ -105,7 +105,7 @@ npm run dev
 
 ## Testing
 
-Unit tests cover the logic around AI output and what ends up in an exported resume or letter: the server-side checks on tailoring suggestions (using changes Claude actually produced as test cases), how saved tailoring changes are matched to resume bullets (changes whose original text no longer matches are reported, never applied to a different bullet), Undo/Redo and re-tailoring carry-over, fit score and verdict calculation, cover letter template handling (placeholders, verbatim greeting and closing, tools the resume doesn't show), the 30-day follow-up rule, duplicated label removal, and export file names.
+Unit tests cover the logic around AI output and what ends up in an exported resume or letter: the server-side checks on tailoring suggestions (using changes Claude actually produced as test cases), how saved tailoring changes are matched to resume bullets (changes whose original text no longer matches are reported, never applied to a different bullet), Undo/Redo and re-tailoring carry-over, fit score and verdict calculation, cover letter template handling (placeholders, verbatim greeting and closing, tools the resume doesn't show), how a letter's name and contact lines are separated for the PDF letterhead and which contact items become links, name capitalization, the 30-day follow-up rule, duplicated label removal, and export file names.
 
 ```bash
 npm test
