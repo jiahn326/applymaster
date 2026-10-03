@@ -203,5 +203,8 @@ describe('resumeFileName', () => {
     expect(resumeFileName('Jane/Doe: "PhD"')).toBe('JaneDoe_PhD_Resume')
     expect(resumeFileName('')).toBe('Resume')
     expect(documentFileName('Jane Doe', 'CoverLetter')).toBe('Jane_Doe_CoverLetter')
+    expect(documentFileName('JIHYUN AHN', 'CoverLetter')).toBe('Jihyun_Ahn_CoverLetter')
+    expect(documentFileName("MARY-JANE O'NEIL", 'Resume')).toBe("Mary-Jane_O'Neil_Resume")
+    expect(documentFileName('Jane McDoe', 'Resume')).toBe('Jane_McDoe_Resume')
   })
 })
