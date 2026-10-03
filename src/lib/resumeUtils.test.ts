@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { resolveTailoring, carryOverUndone, normalizeBullet, labeledLine, resumeFileName, documentFileName, displayName } from './resumeUtils'
+import { resolveTailoring, carryOverUndone, normalizeBullet, labeledLine, resumeFileName, documentFileName, displayName, withDisplayName, withLetterName } from './resumeUtils'
 import type { ResumeStructure } from './parseResumeStructure'
 import type { BulletDiff, TailoredResume } from './tailorResume'
 
@@ -202,6 +202,19 @@ describe('displayName', () => {
     expect(displayName('JIHYUN AHN')).toBe('Jihyun Ahn')
     expect(displayName('Jane McDoe')).toBe('Jane McDoe')
     expect(displayName('')).toBe('')
+  })
+})
+
+describe('withDisplayName / withLetterName', () => {
+  it('normalizes the resume header name once', () => {
+    expect(withDisplayName(resume({ header: { name: 'JANE DOE', contact: 'x' } })).header.name).toBe('Jane Doe')
+    const same = resume()
+    expect(withDisplayName(same)).toBe(same)
+  })
+  it('fixes name-only lines in a saved letter and nothing else', () => {
+    const letter = 'JANE DOE\njane@example.com\n\nDear JANE DOE fans,\n\nSincerely,\n  JANE DOE'
+    expect(withLetterName(letter, 'Jane Doe')).toBe('Jane Doe\njane@example.com\n\nDear JANE DOE fans,\n\nSincerely,\n  Jane Doe')
+    expect(withLetterName(letter, undefined)).toBe(letter)
   })
 })
 

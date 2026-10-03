@@ -20,7 +20,7 @@ import { placeholderCount, splitPlaceholders, type ApplicationAnswer } from '../
 import { useAbortable } from '../hooks/useAbortable'
 import { useSlowFlag } from '../hooks/useSlowFlag'
 import { errorMessage, type ResumeRow, type UserSettingsRow } from '../lib/records'
-import { resumeFileName, documentFileName, displayName, resolveTailoring, carryOverUndone, resumeToText } from '../lib/resumeUtils'
+import { resumeFileName, documentFileName, withDisplayName, withLetterName, resolveTailoring, carryOverUndone, resumeToText } from '../lib/resumeUtils'
 import { APPLIED_THROUGH, appliedThroughLabel } from '../lib/appliedThrough'
 import { STATUS_CONFIG, TRACKED_STATUSES, type AppStatus } from '../lib/status'
 import type { TailoredResume } from '../lib/tailorResume'
@@ -115,7 +115,13 @@ export default function ApplicationDetailPage() {
         supabase.from('user_settings').select('active_resume_id').maybeSingle(),
         supabase.from('resumes').select('id, content').order('created_at', { ascending: false }),
       ])
-      const a = appData as Application
+      // Names written in capitals on a resume are shown in normal case everywhere
+      // (preview, PDFs, letters); normalized here, where resumes are loaded
+      const loaded = appData as Application
+      const base = loaded?.tailored_resume?.base
+      const a = base?.structure
+        ? { ...loaded, tailored_resume: { ...loaded.tailored_resume!, base: { ...base, structure: withDisplayName(base.structure) } } }
+        : loaded
       setApp(a)
       setNotesValue(a?.notes ?? '')
       answersRef.current = a?.answers ?? []
@@ -123,11 +129,12 @@ export default function ApplicationDetailPage() {
       const activeId = (settingsData as UserSettingsRow | null)?.active_resume_id
       const resumes = (resumesData ?? []) as ResumeRow[]
       const resume = resumes.find(r => r.id === activeId) ?? resumes[0]
-      setStructure(resume?.content?.structure ?? null)
+      const resumeStructure = resume?.content?.structure ? withDisplayName(resume.content.structure) : null
+      setStructure(resumeStructure)
       setRawText(resume?.content?.raw_text ?? '')
       setCurrentLocation(resume?.content?.current_location ?? undefined)
       setResumeId(resume?.id)
-      if (a?.cover_letter) setCoverLetter(a.cover_letter)
+      if (a?.cover_letter) setCoverLetter(withLetterName(a.cover_letter, resumeStructure?.header.name))
       setCoverLetterSubmitted(a?.cover_letter_submitted ?? false)
       setLoading(false)
     }
@@ -303,8 +310,7 @@ export default function ApplicationDetailPage() {
     setGeneratingCL(true)
     setCoverLetterError(null)
     try {
-      const header = structure?.header && { ...structure.header, name: displayName(structure.header.name) }
-      const result = await generateCoverLetter(app.company, app.role, app.job_description, header, submittedResumeText(), signal)
+      const result = await generateCoverLetter(app.company, app.role, app.job_description, structure?.header, submittedResumeText(), signal)
       if (signal.aborted) return
       setCoverLetter(result)
       await supabase.from('applications').update({ cover_letter: result }).eq('id', app.id)

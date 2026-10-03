@@ -1,7 +1,7 @@
 import { jsPDF } from 'jspdf'
 import type { TailoredResume } from './tailorResume'
 import type { ResumeStructure } from './parseResumeStructure'
-import { applyTailoring, skillGroups, sectionTitle, labeledLine, displayName } from './resumeUtils'
+import { applyTailoring, skillGroups, sectionTitle, labeledLine } from './resumeUtils'
 
 // ─── PDF Export ─────────────────────────────────────────────────────────────
 
@@ -152,7 +152,7 @@ export async function exportPdf(
     // Header
     doc.setFont(font, 'bold')
     doc.setFontSize(16.5)
-    doc.text(displayName(s.header.name), pageWidth / 2, y, { align: 'center' })
+    doc.text(s.header.name, pageWidth / 2, y, { align: 'center' })
     y += 18 * ls
     doc.setFont(font, 'normal')
     doc.setFontSize(body)

@@ -1,17 +1,12 @@
 import { jsPDF } from 'jspdf'
 import { splitLetter, contactRuns } from './letterLayout'
-import { displayName } from './resumeUtils'
 
 // Laid out like the user's Word template: US Letter, 1" margins, Arial 11pt
 // (Helvetica has Arial's metrics), the name at 20pt centered over a centered
 // contact line and a rule, then the letter at 1.5 line spacing with its own
 // blank lines between paragraphs.
 export function exportCoverLetterPdf(letter: string, fileName: string, resumeHeader?: { name: string; contact: string }): void {
-  const parts = splitLetter(letter, resumeHeader)
-  const { contact } = parts
-  const name = displayName(parts.name)
-  // Letters written before names were normalized sign off in capitals too
-  const body = parts.body.map(line => line.trim() && line.trim() === parts.name.trim() ? name : line)
+  const { name, contact, body } = splitLetter(letter, resumeHeader)
   const doc = new jsPDF({ unit: 'pt', format: 'letter' })
   const pageWidth = doc.internal.pageSize.getWidth()
   const pageHeight = doc.internal.pageSize.getHeight()

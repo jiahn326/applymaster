@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react'
 import type { TailoredResume } from '../lib/tailorResume'
 import type { ResumeStructure } from '../lib/parseResumeStructure'
-import { resolveTailoring, skillGroups, sectionTitle, labeledLine, displayName, type DiffPlacement } from '../lib/resumeUtils'
+import { resolveTailoring, skillGroups, sectionTitle, labeledLine, type DiffPlacement } from '../lib/resumeUtils'
 import { wordDiff } from '../lib/wordDiff'
 
 interface Props {
@@ -135,7 +135,7 @@ function ResumePreview({ structure, compareTo, side, rawText, placements, sugges
       {!changedOnly && (<>
       {/* Header */}
       <div className="text-center mb-4">
-        <div className="font-bold text-sm">{displayName(structure.header.name)}</div>
+        <div className="font-bold text-sm">{structure.header.name}</div>
         <div className="text-gray-500 text-xs">{structure.header.contact}</div>
       </div>
 

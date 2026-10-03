@@ -161,6 +161,24 @@ export function displayName(name: string): string {
     : name
 }
 
+// The resume with its header name in normal case. Applied once where a resume is
+// loaded, so the preview, the PDF, and new cover letters all get the same name.
+export function withDisplayName(s: ResumeStructure): ResumeStructure {
+  const name = displayName(s.header.name)
+  return name === s.header.name ? s : { ...s, header: { ...s.header, name } }
+}
+
+// A saved cover letter with lines that are just the candidate's name (letterhead,
+// sign-off) in that name's normal case, e.g. letters written from an all-caps resume
+export function withLetterName(letter: string, name: string | undefined): string {
+  if (!name?.trim()) return letter
+  const target = displayName(name.trim())
+  return letter.split('\n').map(line => {
+    const t = line.trim()
+    return t && t !== target && t.toLowerCase() === target.toLowerCase() ? line.replace(t, target) : line
+  }).join('\n')
+}
+
 // "Jane_Doe_Resume" / "Jane_Doe_CoverLetter", without characters file systems reject
 export function documentFileName(name: string | undefined, kind: 'Resume' | 'CoverLetter'): string {
   const base = [...displayName(name ?? '')]
