@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { resolveTailoring, carryOverUndone, normalizeBullet, labeledLine, resumeFileName, documentFileName } from './resumeUtils'
+import { resolveTailoring, carryOverUndone, normalizeBullet, labeledLine, resumeFileName, documentFileName, displayName } from './resumeUtils'
 import type { ResumeStructure } from './parseResumeStructure'
 import type { BulletDiff, TailoredResume } from './tailorResume'
 
@@ -194,6 +194,14 @@ describe('labeledLine', () => {
   })
   it('keeps values that only start with the same word', () => {
     expect(labeledLine('Cloud', 'Cloud Run, Cloud SQL').text).toBe('Cloud Run, Cloud SQL')
+  })
+})
+
+describe('displayName', () => {
+  it('turns an all-capitals name into normal case and leaves mixed case alone', () => {
+    expect(displayName('JIHYUN AHN')).toBe('Jihyun Ahn')
+    expect(displayName('Jane McDoe')).toBe('Jane McDoe')
+    expect(displayName('')).toBe('')
   })
 })
 

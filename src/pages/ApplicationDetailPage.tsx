@@ -20,7 +20,7 @@ import { placeholderCount, splitPlaceholders, type ApplicationAnswer } from '../
 import { useAbortable } from '../hooks/useAbortable'
 import { useSlowFlag } from '../hooks/useSlowFlag'
 import { errorMessage, type ResumeRow, type UserSettingsRow } from '../lib/records'
-import { resumeFileName, documentFileName, resolveTailoring, carryOverUndone, resumeToText } from '../lib/resumeUtils'
+import { resumeFileName, documentFileName, displayName, resolveTailoring, carryOverUndone, resumeToText } from '../lib/resumeUtils'
 import { APPLIED_THROUGH, appliedThroughLabel } from '../lib/appliedThrough'
 import { STATUS_CONFIG, TRACKED_STATUSES, type AppStatus } from '../lib/status'
 import type { TailoredResume } from '../lib/tailorResume'
@@ -304,7 +304,8 @@ export default function ApplicationDetailPage() {
     setGeneratingCL(true)
     setCoverLetterError(null)
     try {
-      const result = await generateCoverLetter(app.company, app.role, app.job_description, structure?.header, submittedResumeText(), signal)
+      const header = structure?.header && { ...structure.header, name: displayName(structure.header.name) }
+      const result = await generateCoverLetter(app.company, app.role, app.job_description, header, submittedResumeText(), signal)
       if (signal.aborted) return
       setCoverLetter(result)
       await supabase.from('applications').update({ cover_letter: result }).eq('id', app.id)

@@ -153,14 +153,17 @@ export function labeledLine(label: string, value: string): { label: string; text
 // Download name recruiters see, e.g. "Jane_Doe_Resume". No company name, so the same
 // file can't reveal (or mislabel) where else you're applying. Characters that are
 // invalid in file names are dropped; falls back to "Resume" when there's no name.
-// "Jane_Doe_Resume" / "Jane_Doe_CoverLetter", without characters file systems reject.
-// A name written in capitals on the resume ("JANE DOE") becomes "Jane_Doe".
+// A name written in capitals on the resume ("JANE DOE") shown as "Jane Doe" in the
+// PDFs and letters; names with their own mixed case ("Jane McDoe") are left alone
+export function displayName(name: string): string {
+  return /[A-Z]/.test(name) && name === name.toUpperCase()
+    ? name.toLowerCase().replace(/(^|[\s'-])(\p{L})/gu, (_, sep: string, c: string) => sep + c.toUpperCase())
+    : name
+}
+
+// "Jane_Doe_Resume" / "Jane_Doe_CoverLetter", without characters file systems reject
 export function documentFileName(name: string | undefined, kind: 'Resume' | 'CoverLetter'): string {
-  const raw = name ?? ''
-  const cased = /[A-Z]/.test(raw) && raw === raw.toUpperCase()
-    ? raw.toLowerCase().replace(/(^|[\s'-])(\p{L})/gu, (_, sep: string, c: string) => sep + c.toUpperCase())
-    : raw
-  const base = [...cased]
+  const base = [...displayName(name ?? '')]
     .map(c => (c < ' ' ? ' ' : c))
     .filter(c => !'\\/:*?"<>|'.includes(c))
     .join('')
